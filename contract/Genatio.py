@@ -384,7 +384,7 @@ Is the dispute valid? Reply only VALID or INVALID with one sentence reason."""
                 f"""Check wallet age and activity for address: {wallet_address}
 
 Check 1 — Bradbury testnet:
-Fetch: https://bradbury.genlayer.com/api/wallet/{wallet_address}
+Fetch: https://explorer-bradbury.genlayer.com/address/{wallet_address}
 Score wallet age:
 2 to 3 months = 20pts
 1 to 2 months = 15pts
@@ -408,7 +408,7 @@ Otherwise reply with total score as a number only. Maximum 80."""
             )
         result = gl.eq_principle.prompt_comparative(
             get_score,
-            "Both outputs are equivalent if both say REJECTED or if both return a number within 10 points of each other"
+            "Both outputs are equivalent if both say REJECTED, or if both produce a score that falls in the same tier: below 20, 20 to 49, or 50 and above"
         )
 
         if "REJECTED" in result.upper():
@@ -499,7 +499,7 @@ Otherwise reply with total score as a number only. Maximum 135. Then normalize t
             )
         result = gl.eq_principle.prompt_comparative(
             verify,
-            "Both outputs are equivalent if both say REJECTED or if both return a number within 10 points of each other"
+            "Both outputs are equivalent if both say REJECTED, or if both produce a score that falls in the same tier: below 50, between 50 and 84, or 85 and above"
         )
 
         if "REJECTED" in result.upper():
