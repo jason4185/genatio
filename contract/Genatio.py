@@ -180,7 +180,7 @@ Under 10 = 2pts
 Zero = 0pts
 
 If BOTH chains show wallet age under 1 week reply exactly: REJECTED
-Otherwise reply with total score as a number only. Maximum 80."""
+Otherwise reply with total score as a number only. Maximum 40."""
             )
         wallet_score_result = gl.eq_principle.prompt_comparative(
             get_wallet_score,
@@ -443,7 +443,7 @@ Under 10 = 2pts
 Zero = 0pts
 
 If BOTH chains show wallet age under 1 week reply exactly: REJECTED:wallet_too_new
-Maximum wallet trust score = 80pts. Note it as WALLET_SCORE.
+Maximum wallet trust score = 40pts. Note it as WALLET_SCORE.
 
 === STEP 3: GITHUB VERIFICATION ===
 
@@ -514,7 +514,7 @@ Stars 0 and forks 0 = 0pts
 
 Factor 11 — Wallet trust score:
 Use WALLET_SCORE from Step 2.
-Normalize to max 10pts: round(WALLET_SCORE / 8).
+Normalize to max 10pts: round(WALLET_SCORE / 4).
 
 Add all factor scores. Maximum = 160pts.
 Normalize to 100: round((total / 160) * 100).
