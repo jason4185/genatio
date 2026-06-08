@@ -390,9 +390,10 @@ Otherwise reply with total score as a number only. Maximum 80."""
         if "REJECTED" in result.upper():
             return -1
         try:
-            return int(''.join(filter(str.isdigit, result)))
+            digits = ''.join(filter(str.isdigit, result))
+            return u256(digits) if digits else u256(10)
         except:
-            return 10
+            return u256(10)
 
     def _verify_open_source(
         self,
@@ -475,7 +476,8 @@ Otherwise reply with total score as a number only. Maximum 135. Then normalize t
         if "REJECTED" in result.upper():
             return 0
         try:
-            score = int(''.join(filter(str.isdigit, result.split('\n')[-1])))
+            digits = ''.join(filter(str.isdigit, result.split('\n')[-1]))
+            score = u256(digits) if digits else u256(0)
             return min(score, 100)
         except:
-            return 0
+            return u256(0)
