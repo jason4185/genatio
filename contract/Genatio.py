@@ -82,8 +82,6 @@ class Genatio(gl.Contract):
                 "goal_usd": str(goal_usd),
                 "duration_days": str(duration_days),
                 "raised_usd": "0",
-                "escrowed_usd": "0",
-                "released_usd": "0",
                 "github_repo_url": github_repo_url,
                 "github_file_url": github_file_url,
                 "live_url": live_url,
@@ -94,9 +92,7 @@ class Genatio(gl.Contract):
                 "status": status,
                 "score": str(score),
                 "donor_count": "0",
-                "chains_used": [],
-                "milestones": [],
-                "milestone_stage": "0"
+                "chains_used": []
             }
             self.campaigns[campaign_id] = json.dumps(campaign)
 
@@ -128,14 +124,6 @@ class Genatio(gl.Contract):
         if chain not in campaign["chains_used"]:
             campaign["chains_used"].append(chain)
 
-        # Escrow logic
-        # Under $1000 — release immediately
-        # $1000 and above — hold in escrow, release by milestones
-        if u256(campaign["goal_usd"]) < u256(1000):
-            campaign["released_usd"] = str(u256(campaign["released_usd"]) + u256(amount_usd))
-        else:
-            campaign["escrowed_usd"] = str(u256(campaign["escrowed_usd"]) + u256(amount_usd))
-
         self.campaigns[campaign_id] = json.dumps(campaign)
         self.donations.append(json.dumps({
             "campaign_id": campaign_id,
@@ -147,97 +135,6 @@ class Genatio(gl.Contract):
         }))
 
         return json.dumps({"status": "success"})
-
-    @gl.public.write
-    def release_milestone(
-        self,
-        wallet_address: str,
-        campaign_id: str,
-        proof_url: str
-    ) -> str:
-        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
-        if not campaign:
-            return json.dumps({"status": "error", "reason": "Campaign not found"})
-        if campaign["wallet"] != wallet_address:
-            return json.dumps({"status": "error", "reason": "Not your campaign"})
-        if u256(campaign["goal_usd"]) < u256(1000):
-            return json.dumps({"status": "error", "reason": "Milestones only apply to grants above $1000"})
-        if u256(campaign["escrowed_usd"]) == u256(0):
-            return json.dumps({"status": "error", "reason": "Nothing in escrow"})
-
-        stage = u256(campaign["milestone_stage"])
-
-        # AI verifies proof document and GitHub progress
-        def verify_milestone():
-            parts = campaign['github_repo_url'].rstrip('/').split('/')
-            owner = parts[-2] if len(parts) >= 2 else ""
-            repo = parts[-1] if len(parts) >= 1 else ""
-            commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
-            commits_data = gl.nondet.web.render(commits_url, mode="text")
-            proof_data = gl.nondet.web.render(proof_url, mode="text")
-            return gl.nondet.exec_prompt(
-                f"""You are verifying a milestone proof for an open source project grant.
-
-Project title: {campaign['title']}
-What they promised to build: {campaign['funding_purpose']}
-GitHub repo: {campaign['github_repo_url']}
-Milestone stage: {u256(stage) + u256(1)} of 3
-
-Recent commits from GitHub API:
-{commits_data}
-
-Creator submitted this proof document URL: {proof_url}
-Proof document content:
-{proof_data}
-
-Check if:
-1. New commits exist that show real code progress toward the funding purpose
-2. The proof document clearly explains what was built and matches the funding purpose
-
-If both conditions are met reply exactly: APPROVED
-Otherwise reply exactly: REJECTED with one sentence reason."""
-            )
-        verification = gl.eq_principle.prompt_comparative(
-            verify_milestone,
-            "Both outputs are equivalent if both say APPROVED or both say REJECTED"
-        )
-
-        if "APPROVED" not in verification.upper():
-            return json.dumps({
-                "status": "rejected",
-                "reason": verification,
-                "message": "Milestone not approved. Improve your proof and resubmit."
-            })
-
-        # Release percentages: stage 0 = 30%, stage 1 = 40%, stage 2 = 30%
-        if stage == u256(0):
-            release_amount = u256(campaign["escrowed_usd"]) * u256(30) // u256(100)
-        elif stage == u256(1):
-            release_amount = u256(campaign["escrowed_usd"]) * u256(40) // u256(100)
-        else:
-            release_amount = u256(campaign["escrowed_usd"]) * u256(30) // u256(100)
-
-        campaign["released_usd"] = str(u256(campaign["released_usd"]) + release_amount)
-        campaign["escrowed_usd"] = str(u256(campaign["escrowed_usd"]) - release_amount)
-        campaign["milestone_stage"] = str(u256(campaign["milestone_stage"]) + u256(1))
-        campaign["milestones"].append({
-            "stage": str(u256(stage) + u256(1)),
-            "proof_url": proof_url,
-            "amount_released": str(release_amount),
-            "verification": verification
-        })
-
-        if u256(campaign["milestone_stage"]) >= u256(3):
-            campaign["status"] = "completed"
-
-        self.campaigns[campaign_id] = json.dumps(campaign)
-
-        return json.dumps({
-            "status": "success",
-            "amount_released": str(release_amount),
-            "stage": str(u256(stage) + u256(1)),
-            "next_stage": str(u256(stage) + u256(2)) if u256(stage) + u256(1) < u256(3) else None
-        })
 
     @gl.public.write
     def vouch_campaign(
