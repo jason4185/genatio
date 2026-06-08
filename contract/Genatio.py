@@ -52,57 +52,59 @@ class Genatio(gl.Contract):
             funding_purpose
         )
 
+        reason_map = {
+            "REJECTED:not_english": "English only",
+            "REJECTED:wallet_too_new": "Wallet too new on both chains",
+            "REJECTED:no_repo": "GitHub repository not found or private",
+            "REJECTED:repo_too_new": "Repository is less than 7 days old"
+        }
+
         if "REJECTED" in result:
-            reason_map = {
-                "REJECTED:not_english": "English only",
-                "REJECTED:wallet_too_new": "Wallet too new on both chains",
-                "REJECTED:no_repo": "GitHub repository not found or private",
-                "REJECTED:repo_too_new": "Repository is less than 7 days old"
-            }
-            reason = reason_map.get(result.strip(), "Verification failed")
-            return json.dumps({"status": "rejected", "reason": reason})
-
-        try:
-            score = u256(result.strip()) if result.strip().isdigit() else u256(0)
-        except:
-            score = u256(0)
-
-        if u256(score) >= u256(85):
-            status = "active"
-        elif u256(score) >= u256(50):
-            status = "vouching"
-        else:
             status = "rejected"
+            score = u256(0)
+        else:
+            try:
+                score = u256(result.strip()) if result.strip().isdigit() else u256(0)
+            except:
+                score = u256(0)
+
+            if u256(score) >= u256(85):
+                status = "active"
+            elif u256(score) >= u256(50):
+                status = "vouching"
+            else:
+                status = "rejected"
 
         campaign_id = str(len(self.campaigns) + 1)
 
-        if status != "rejected":
-            campaign = {
-                "id": campaign_id,
-                "wallet": wallet_address,
-                "title": title,
-                "story": story,
-                "goal_usd": str(goal_usd),
-                "duration_days": str(duration_days),
-                "raised_usd": "0",
-                "github_repo_url": github_repo_url,
-                "live_url": live_url,
-                "upload_url_1": upload_url_1,
-                "upload_url_2": upload_url_2,
-                "upload_url_3": upload_url_3,
-                "funding_purpose": funding_purpose,
-                "status": status,
-                "score": str(score),
-                "donor_count": "0",
-                "chains_used": []
-            }
-            self.campaigns[campaign_id] = json.dumps(campaign)
+        campaign = {
+            "id": campaign_id,
+            "wallet": wallet_address,
+            "title": title,
+            "story": story,
+            "goal_usd": str(goal_usd),
+            "duration_days": str(duration_days),
+            "raised_usd": "0",
+            "github_repo_url": github_repo_url,
+            "live_url": live_url,
+            "upload_url_1": upload_url_1,
+            "upload_url_2": upload_url_2,
+            "upload_url_3": upload_url_3,
+            "funding_purpose": funding_purpose,
+            "status": status,
+            "score": str(score),
+            "donor_count": "0",
+            "chains_used": [],
+            "milestones": [],
+            "rejection_reason": reason_map.get(result.strip(), "Score too low. Improve your evidence and resubmit.") if "REJECTED" in result else None
+        }
+        self.campaigns[campaign_id] = json.dumps(campaign)
 
         return json.dumps({
             "status": status,
             "score": str(score),
-            "campaign_id": campaign_id if status != "rejected" else None,
-            "reason": None if status != "rejected" else "Score too low. Improve your evidence and resubmit."
+            "campaign_id": campaign_id,
+            "reason": campaign["rejection_reason"]
         })
 
     @gl.public.write
