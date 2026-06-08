@@ -456,7 +456,7 @@ Factor 1 — Repo exists and is public:
 Check if repo data loaded and private is false.
 Exists and public = 20pts
 Not found or private = 0pts
-If 0pts reply exactly: REJECTED:no_repo
+If not found or private score 0pts and continue scoring other factors.
 
 Factor 2 — Commit activity (check pushed_at and commits list):
 Last 30 days = 20pts
@@ -547,6 +547,6 @@ Areas for Improvement:
 
         result = gl.eq_principle.prompt_comparative(
             verify,
-            "Both outputs are equivalent if both are the same REJECTED code, or if both produce a score that falls in the same tier: below 50, between 50 and 84, or 85 and above"
+            "Both outputs are equivalent if the score on the first line of each response falls in the same tier: below 50, between 50 and 84, or 85 and above"
         )
         return result
