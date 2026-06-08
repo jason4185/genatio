@@ -29,7 +29,7 @@ class Genatio(gl.Contract):
             return json.dumps({"status": "rejected", "reason": "Wallet is blacklisted"})
 
         # Duplicate check
-        active = [json.loads(v) for v in self.campaigns.values() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] in ["active", "vouching"]]
+        active = [json.loads(v) for k, v in self.campaigns.items() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] in ["active", "vouching"]]
         if len(active) >= 2:
             return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
 
@@ -322,7 +322,7 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
 
     @gl.public.view
     def get_campaigns(self, status: str) -> str:
-        campaigns = [json.loads(v) for v in self.campaigns.values()]
+        campaigns = [json.loads(v) for k, v in self.campaigns.items()]
         if status:
             campaigns = [c for c in campaigns if c["status"] == status]
         return json.dumps(campaigns)
