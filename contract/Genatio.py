@@ -82,12 +82,15 @@ class Genatio(gl.Contract):
         }
         self.campaigns[campaign_id] = json.dumps(campaign)
 
-        return json.dumps({
-            "status": status,
-            "score": str(score),
-            "campaign_id": campaign_id,
-            "reason": campaign["rejection_reason"]
-        })
+        return f"""GENATIO VERIFICATION RESULT
+Status: {status}
+Score: {str(score)}/100
+Campaign ID: {campaign_id}
+
+{result.strip()}
+
+---
+{json.dumps({"status": status, "score": str(score), "campaign_id": campaign_id, "reason": campaign["rejection_reason"]})}"""
 
     @gl.public.write
     def donate(
