@@ -39,8 +39,13 @@ class Genatio(gl.Contract):
             return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
 
         # English check
-        english_check = gl.nondet.exec_prompt(
-            f"Is this text written in English? Reply only YES or NO.\n\nTitle: {title}\n\nStory: {story}"
+        def check_english():
+            return gl.nondet.exec_prompt(
+                f"Is this text written in English? Reply only YES or NO.\n\nTitle: {title}\n\nStory: {story}"
+            )
+        english_check = gl.eq_principle.prompt_comparative(
+            check_english,
+            "Both outputs are equivalent if both say YES or both say NO"
         )
         if "NO" in english_check.upper():
             return json.dumps({"status": "rejected", "reason": "English only"})
@@ -172,8 +177,9 @@ class Genatio(gl.Contract):
         stage = u256(campaign["milestone_stage"])
 
         # AI verifies proof document and GitHub progress
-        verification = gl.nondet.exec_prompt(
-            f"""You are verifying a milestone proof for an open source project grant.
+        def verify_milestone():
+            return gl.nondet.exec_prompt(
+                f"""You are verifying a milestone proof for an open source project grant.
 
 Project title: {campaign['title']}
 What they promised to build: {campaign['funding_purpose']}
@@ -189,6 +195,10 @@ Do the following:
 4. Check if the proof document matches what was promised in the funding purpose
 
 Reply only APPROVED or REJECTED with one sentence reason."""
+            )
+        verification = gl.eq_principle.prompt_comparative(
+            verify_milestone,
+            "Both outputs are equivalent if both say APPROVED or both say REJECTED"
         )
 
         if "APPROVED" not in verification.upper():
@@ -303,8 +313,9 @@ Reply only APPROVED or REJECTED with one sentence reason."""
         if not campaign or not dispute:
             return json.dumps({"status": "error", "reason": "Not found"})
 
-        resolution = gl.nondet.exec_prompt(
-            f"""You are resolving a dispute for an open source grant campaign.
+        def resolve():
+            return gl.nondet.exec_prompt(
+                f"""You are resolving a dispute for an open source grant campaign.
 
 Campaign title: {campaign['title']}
 Campaign story: {campaign['story']}
@@ -314,6 +325,10 @@ Dispute evidence: {dispute['evidence_url']}
 
 Fetch and read the dispute evidence URL and the campaign details.
 Is the dispute valid? Reply only VALID or INVALID with one sentence reason."""
+            )
+        resolution = gl.eq_principle.prompt_comparative(
+            resolve,
+            "Both outputs are equivalent if both say VALID or both say INVALID"
         )
 
         if "VALID" in resolution.upper():
@@ -364,8 +379,9 @@ Is the dispute valid? Reply only VALID or INVALID with one sentence reason."""
     # ─── INTERNAL METHODS ───
 
     def _get_wallet_score(self, wallet_address: str) -> str:
-        result = gl.nondet.exec_prompt(
-            f"""Check wallet age and activity for address: {wallet_address}
+        def get_score():
+            return gl.nondet.exec_prompt(
+                f"""Check wallet age and activity for address: {wallet_address}
 
 Check 1 — Bradbury testnet:
 Fetch: https://bradbury.genlayer.com/api/wallet/{wallet_address}
@@ -389,6 +405,10 @@ Zero = 0pts
 
 If BOTH chains show under 1 week age reply: REJECTED
 Otherwise reply with total score as a number only. Maximum 80."""
+            )
+        result = gl.eq_principle.prompt_comparative(
+            get_score,
+            "Both outputs are equivalent if both say REJECTED or if both return a number within 10 points of each other"
         )
 
         if "REJECTED" in result.upper():
@@ -412,8 +432,9 @@ Otherwise reply with total score as a number only. Maximum 80."""
         community_url: str,
         funding_purpose: str
     ) -> str:
-        result = gl.nondet.exec_prompt(
-            f"""You are verifying an open source project grant application. Score each factor honestly.
+        def verify():
+            return gl.nondet.exec_prompt(
+                f"""You are verifying an open source project grant application. Score each factor honestly.
 
 GITHUB REPO: {github_repo_url}
 SPECIFIC FILE: {github_file_url}
@@ -475,6 +496,10 @@ Normalize to max 10pts.
 
 If AUTO REJECTION triggered reply: REJECTED
 Otherwise reply with total score as a number only. Maximum 135. Then normalize to 100."""
+            )
+        result = gl.eq_principle.prompt_comparative(
+            verify,
+            "Both outputs are equivalent if both say REJECTED or if both return a number within 10 points of each other"
         )
 
         if "REJECTED" in result.upper():
