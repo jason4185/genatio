@@ -52,28 +52,20 @@ class Genatio(gl.Contract):
             funding_purpose
         )
 
-        reason_map = {
-            "REJECTED:not_english": "English only",
-            "REJECTED:wallet_too_new": "Wallet too new on both chains",
-            "REJECTED:no_repo": "GitHub repository not found or private",
-            "REJECTED:repo_too_new": "Repository is less than 7 days old"
-        }
-
-        if "REJECTED" in result:
-            status = "rejected"
+        try:
+            first_line = result.strip().split('\n')[0].strip()
+            digits = ''.join(filter(str.isdigit, first_line))
+            score = u256(digits) if digits else u256(0)
+            score = score if u256(score) <= u256(100) else u256(100)
+        except:
             score = u256(0)
-        else:
-            try:
-                score = u256(result.strip()) if result.strip().isdigit() else u256(0)
-            except:
-                score = u256(0)
 
-            if u256(score) >= u256(85):
-                status = "active"
-            elif u256(score) >= u256(50):
-                status = "vouching"
-            else:
-                status = "rejected"
+        if u256(score) >= u256(85):
+            status = "active"
+        elif u256(score) >= u256(50):
+            status = "vouching"
+        else:
+            status = "rejected"
 
         campaign_id = str(len(self.campaigns) + 1)
 
@@ -96,7 +88,8 @@ class Genatio(gl.Contract):
             "donor_count": "0",
             "chains_used": [],
             "milestones": [],
-            "rejection_reason": reason_map.get(result.strip(), "Score too low. Improve your evidence and resubmit.") if "REJECTED" in result else (f"Score too low — you scored {str(score)} out of 100. Minimum required is 50 for community vouching or 85 for direct approval. Improve your evidence and resubmit." if status == "rejected" else None)
+            "rejection_reason": result.strip() if status == "rejected" else None,
+            "verification_details": result.strip()
         }
         self.campaigns[campaign_id] = json.dumps(campaign)
 
@@ -153,8 +146,8 @@ class Genatio(gl.Contract):
             return json.dumps({"status": "error", "reason": "Campaign not in vouching state"})
 
         def get_wallet_score():
-            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/address/{wallet_address}", mode="text") or "No data available"
-            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available"
+            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}", mode="text") or "No data available"
+            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available"
             return gl.nondet.exec_prompt(
                 f"""IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
 
@@ -387,8 +380,8 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
         github_commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
 
         def verify():
-            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/address/{wallet_address}", mode="text") or "No data available"
-            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available"
+            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}", mode="text") or "No data available"
+            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available"
             repo_data = gl.nondet.web.render(github_api_url, mode="text") or "No data available"
             commits_data = gl.nondet.web.render(github_commits_url, mode="text") or "No data available"
             live_data = (gl.nondet.web.render(live_url, mode="text") or "No data available") if live_url else "No data available"
@@ -416,7 +409,7 @@ Be thorough, honest, and strict. Follow every step exactly and in order.
 
 === STEP 1: LANGUAGE CHECK ===
 Read the title and story below.
-If they are NOT written in English reply exactly: REJECTED:not_english
+Language score: English = 10pts, Not English = 0pts
 Title: {title}
 Story: {story}
 
@@ -444,7 +437,11 @@ Over 100 = 20pts
 Under 10 = 2pts
 Zero = 0pts
 
-If BOTH chains show wallet age under 1 week reply exactly: REJECTED:wallet_too_new
+Wallet scoring rules:
+- If only one chain has data use that chain's score
+- If one chain is under 1 week but the other is older use the older chain's score
+- If BOTH chains show wallet age under 1 week score wallet trust 0pts and continue — do not reject
+- The wallet being checked is the connected wallet that signed this transaction: {wallet_address}
 Maximum wallet trust score = 40pts. Note it as WALLET_SCORE.
 
 === STEP 3: GITHUB VERIFICATION ===
@@ -480,7 +477,7 @@ Factor 5 — Repo age (check created_at from repo data):
 Over 90 days old = 10pts
 30 to 90 days = 7pts
 7 to 30 days = 3pts
-Under 7 days reply exactly: REJECTED:repo_too_new
+Under 7 days = 0pts
 
 Factor 6 — Live URL accessible:
 Live URL: {live_url}
@@ -518,12 +515,34 @@ Factor 11 — Wallet trust score:
 Use WALLET_SCORE from Step 2.
 Normalize to max 10pts: round(WALLET_SCORE / 4).
 
-Add all factor scores. Maximum = 160pts.
-Normalize to 100: round((total / 160) * 100).
+Add all factor scores. Maximum = 170pts.
+Normalize to 100: round((total / 170) * 100).
 
 === FINAL REPLY ===
-If any REJECTED condition was triggered reply with that exact rejection string.
-Otherwise reply with only a single number between 0 and 100. Nothing else. No words. Just the number."""
+Reply in this exact format and nothing else:
+[score]
+Verification Summary:
+- [strength 1]
+- [strength 2]
+- [strength 3]
+
+Areas for Improvement:
+- [weakness 1]
+- [weakness 2]
+- [weakness 3]
+
+Where [score] is a single number between 0 and 100 on the first line.
+Example:
+82
+Verification Summary:
+- Repository is active with recent commits and a well-documented README
+- Live application is accessible and loads real content
+- Project has demonstrated community interest with stars and forks
+
+Areas for Improvement:
+- No open source license found — add a LICENSE file to your repository
+- Wallet activity on both chains is limited — a more established wallet improves trust score
+- Screenshots were not provided — upload 3 screenshots to improve your score"""
             )
 
         result = gl.eq_principle.prompt_comparative(
