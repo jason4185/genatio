@@ -38,11 +38,16 @@ class Genatio(gl.Contract):
         if len(active) >= 2:
             return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
 
+        if duration_days != u256(7) and duration_days != u256(14) and duration_days != u256(30):
+            return json.dumps({"status": "rejected", "reason": "Invalid duration. Choose 7, 14, or 30 days"})
+
         result = self._verify_campaign(
             wallet_address,
             title,
             story,
             github_repo_url,
+            github_file_url,
+            live_url,
             upload_url_1,
             upload_url_2,
             upload_url_3,
@@ -240,6 +245,8 @@ Otherwise reply with total score as a number only. Maximum 80."""
         campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
         if not campaign:
             return json.dumps({"status": "error", "reason": "Campaign not found"})
+        if campaign["wallet"] != wallet_address:
+            return json.dumps({"status": "error", "reason": "Not your campaign"})
         if campaign["status"] == "ended":
             return json.dumps({"status": "error", "reason": "Campaign already ended"})
         if campaign["status"] not in ["active", "vouching"]:
@@ -270,6 +277,9 @@ Otherwise reply with total score as a number only. Maximum 80."""
 
         if dispute_index < 0:
             return json.dumps({"status": "error", "reason": "No open dispute found"})
+
+        if dispute["raised_by"] == wallet_address:
+            return json.dumps({"status": "error", "reason": "Cannot resolve your own dispute"})
 
         def resolve():
             evidence_data = gl.nondet.web.render(dispute['evidence_url'], mode="text")
@@ -351,6 +361,8 @@ Reply only VALID or INVALID with one sentence reason."""
         title: str,
         story: str,
         github_repo_url: str,
+        github_file_url: str,
+        live_url: str,
         upload_url_1: str,
         upload_url_2: str,
         upload_url_3: str,
@@ -367,6 +379,8 @@ Reply only VALID or INVALID with one sentence reason."""
             eth_data = gl.nondet.web.render(f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc", mode="text")
             repo_data = gl.nondet.web.render(github_api_url, mode="text")
             commits_data = gl.nondet.web.render(github_commits_url, mode="text")
+            file_data = gl.nondet.web.render(github_file_url, mode="text")
+            live_data = gl.nondet.web.render(live_url, mode="text")
 
             return gl.nondet.exec_prompt(
                 f"""You are verifying an open source project grant application on Genatio.
@@ -434,25 +448,40 @@ Factor 4 — License present (check license field from repo data):
 License exists = 10pts
 No license = 0pts
 
-Factor 5 — Repo age (check created_at from repo data):
+Factor 5 — Specific file readable:
+Specific file content:
+{file_data}
+File loads and contains readable code = 15pts
+File not provided or unreadable = 3pts
+Not submitted = 0pts
+
+Factor 6 — Live URL accessible:
+Live URL: {live_url}
+Live URL content:
+{live_data}
+Loads with real content = 15pts
+Loads but sparse = 7pts
+Does not load = 0pts
+
+Factor 7 — Repo age (check created_at from repo data):
 Over 90 days old = 10pts
 30 to 90 days = 7pts
 7 to 30 days = 3pts
 Under 7 days reply exactly: REJECTED:repo_too_new
 
-Factor 6 — Funding purpose specific:
+Factor 8 — Funding purpose specific:
 Read this funding purpose: {funding_purpose}
 Very specific deliverables = 20pts
 Somewhat specific = 10pts
 Vague = 0pts
 
-Factor 7 — Story quality:
+Factor 9 — Story quality:
 Read this story: {story}
 Detailed and convincing = 15pts
 Basic = 7pts
 Too short or vague = 0pts
 
-Factor 8 — Screenshots provided:
+Factor 10 — Screenshots provided:
 Screenshot 1: {upload_url_1}
 Screenshot 2: {upload_url_2}
 Screenshot 3: {upload_url_3}
@@ -460,18 +489,18 @@ All 3 provided and load = 15pts
 1 or 2 provided = 7pts
 None provided = 0pts
 
-Factor 9 — Community engagement (from GitHub repo data):
+Factor 11 — Community engagement (from GitHub repo data):
 Check stargazers_count, forks_count from repo_data.
 Stars above 10 and forks above 3 = 10pts
 Stars above 3 or forks above 1 = 5pts
 Stars 0 and forks 0 = 0pts
 
-Factor 10 — Wallet trust score:
+Factor 12 — Wallet trust score:
 Use WALLET_SCORE from Step 2.
 Normalize to max 10pts: round(WALLET_SCORE / 8).
 
-Add all factor scores. Maximum = 125pts.
-Normalize to 100: round((total / 125) * 100).
+Add all factor scores. Maximum = 175pts.
+Normalize to 100: round((total / 175) * 100).
 
 === FINAL REPLY ===
 If any REJECTED condition was triggered reply with that exact rejection string.
