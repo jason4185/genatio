@@ -38,31 +38,11 @@ class Genatio(gl.Contract):
         if len(active) >= 2:
             return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
 
-        # English check
-        def check_english():
-            return gl.nondet.exec_prompt(
-                f"Is this text written in English? Reply only YES or NO.\n\nTitle: {title}\n\nStory: {story}"
-            )
-        english_check = gl.eq_principle.prompt_comparative(
-            check_english,
-            "Both outputs are equivalent if both say YES or both say NO"
-        )
-        if "NO" in english_check.upper():
-            return json.dumps({"status": "rejected", "reason": "English only"})
-
-        # Story length check
-        if len(story.split()) < 100:
-            return json.dumps({"status": "rejected", "reason": "Story must be at least 100 words"})
-
-        # Wallet score check
-        wallet_score = self._get_wallet_score(wallet_address)
-        if wallet_score == "REJECTED":
-            return json.dumps({"status": "rejected", "reason": "Wallet too new on both chains"})
-
-        # Open source verification
-        score = self._verify_open_source(
+        result = self._verify_campaign(
             wallet_address,
-            wallet_score,
+            title,
+            story,
+            goal_usd,
             github_repo_url,
             github_file_url,
             live_url,
@@ -72,6 +52,21 @@ class Genatio(gl.Contract):
             community_url,
             funding_purpose
         )
+
+        if "REJECTED" in result:
+            reason_map = {
+                "REJECTED:not_english": "English only",
+                "REJECTED:wallet_too_new": "Wallet too new on both chains",
+                "REJECTED:no_repo": "GitHub repository not found or private",
+                "REJECTED:repo_too_new": "Repository is less than 7 days old"
+            }
+            reason = reason_map.get(result, "Verification failed")
+            return json.dumps({"status": "rejected", "reason": reason})
+
+        try:
+            score = u256(result) if result.isdigit() else u256(0)
+        except:
+            score = u256(0)
 
         if u256(score) >= u256(85):
             status = "active"
@@ -378,51 +373,12 @@ Is the dispute valid? Reply only VALID or INVALID with one sentence reason."""
 
     # ─── INTERNAL METHODS ───
 
-    def _get_wallet_score(self, wallet_address: str) -> str:
-        def get_score():
-            return gl.nondet.exec_prompt(
-                f"""Check wallet age and activity for address: {wallet_address}
-
-Check 1 — Bradbury testnet:
-Fetch: https://explorer-bradbury.genlayer.com/address/{wallet_address}
-Score wallet age:
-2 to 3 months = 20pts
-1 to 2 months = 15pts
-2 weeks to 1 month = 10pts
-1 to 2 weeks = 5pts
-Under 1 week = 0pts
-
-Check 2 — Ethereum Mainnet via Etherscan:
-Fetch: https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc
-Score wallet age same as above.
-Score transaction count:
-Over 100 = 20pts
-50 to 100 = 15pts
-20 to 50 = 10pts
-10 to 20 = 5pts
-Under 10 = 2pts
-Zero = 0pts
-
-If BOTH chains show under 1 week age reply: REJECTED
-Otherwise reply with total score as a number only. Maximum 80."""
-            )
-        result = gl.eq_principle.prompt_comparative(
-            get_score,
-            "Both outputs are equivalent if both say REJECTED, or if both produce a score that falls in the same tier: below 20, 20 to 49, or 50 and above"
-        )
-
-        if "REJECTED" in result.upper():
-            return "REJECTED"
-        try:
-            digits = ''.join(filter(str.isdigit, result))
-            return digits if digits else "10"
-        except:
-            return "10"
-
-    def _verify_open_source(
+    def _verify_campaign(
         self,
         wallet_address: str,
-        wallet_score: str,
+        title: str,
+        story: str,
+        goal_usd: int,
         github_repo_url: str,
         github_file_url: str,
         live_url: str,
@@ -434,22 +390,59 @@ Otherwise reply with total score as a number only. Maximum 80."""
     ) -> str:
         def verify():
             return gl.nondet.exec_prompt(
-                f"""You are verifying an open source project grant application. Score each factor honestly.
+                f"""You are verifying an open source project grant application on Genatio.
+Be thorough, honest, and strict. Follow every instruction exactly.
 
-GITHUB REPO: {github_repo_url}
-SPECIFIC FILE: {github_file_url}
-LIVE URL: {live_url}
-SCREENSHOT 1: {upload_url_1}
-SCREENSHOT 2: {upload_url_2}
-SCREENSHOT 3: {upload_url_3}
-COMMUNITY LINK: {community_url}
-FUNDING PURPOSE: {funding_purpose}
+=== STEP 1: LANGUAGE CHECK ===
+Read the title and story below.
+If they are NOT written in English reply exactly: REJECTED:not_english
+Title: {title}
+Story: {story}
 
-Fetch and read each URL provided. Then score:
+=== STEP 2: WALLET TRUST CHECK ===
+Wallet address: {wallet_address}
+
+Check Bradbury testnet activity:
+Fetch: https://explorer-bradbury.genlayer.com/address/{wallet_address}
+Score wallet age on Bradbury:
+2 to 3 months = 20pts
+1 to 2 months = 15pts
+2 weeks to 1 month = 10pts
+1 to 2 weeks = 5pts
+Under 1 week = 0pts
+
+Check Ethereum Mainnet via Etherscan:
+Fetch: https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc
+Score wallet age on Ethereum same as above.
+Score Ethereum transaction count:
+Over 100 = 20pts
+50 to 100 = 15pts
+20 to 50 = 10pts
+10 to 20 = 5pts
+Under 10 = 2pts
+Zero = 0pts
+
+Take the best age score from either chain.
+Add transaction score from Ethereum.
+If BOTH chains show wallet age under 1 week reply exactly: REJECTED:wallet_too_new
+Wallet trust score maximum = 80pts. Note it as WALLET_SCORE.
+
+=== STEP 3: PROJECT VERIFICATION ===
+Fetch and read each URL:
+GitHub repo: {github_repo_url}
+Specific file: {github_file_url}
+Live URL: {live_url}
+Screenshot 1: {upload_url_1}
+Screenshot 2: {upload_url_2}
+Screenshot 3: {upload_url_3}
+Community link: {community_url}
+
+Score each factor:
 
 Factor 1 — Repo exists and is public:
 Exists and public = 20pts
-Not found or private = 0pts (AUTO REJECTION if 0)
+Not found or private = 0pts
+If 0pts reply exactly: REJECTED:no_repo
 
 Factor 2 — Commit activity:
 Last 30 days = 20pts
@@ -484,29 +477,27 @@ Factor 8 — Repo age:
 Over 90 days = 10pts
 30 to 90 days = 7pts
 7 to 30 days = 3pts
-Under 7 days = AUTO REJECTION
+Under 7 days reply exactly: REJECTED:repo_too_new
 
 Factor 9 — Community proof:
 Real active community = 10pts
 Small but real = 5pts
 No community = 0pts
 
-Factor 10 — Wallet score (already calculated): {wallet_score}
-Normalize to max 10pts.
+Factor 10 — Wallet trust score:
+Take WALLET_SCORE from Step 2.
+Normalize to max 10pts: WALLET_SCORE / 8 rounded down.
 
-If AUTO REJECTION triggered reply: REJECTED
-Otherwise reply with total score as a number only. Maximum 135. Then normalize to 100."""
+Add all factor scores. Maximum project score = 135pts.
+Normalize to 100: (total / 135) * 100 rounded down.
+
+=== FINAL REPLY ===
+If any REJECTED condition was triggered reply exactly with that rejection string.
+Otherwise reply with only a number between 0 and 100. Nothing else."""
             )
+
         result = gl.eq_principle.prompt_comparative(
             verify,
-            "Both outputs are equivalent if both say REJECTED, or if both produce a score that falls in the same tier: below 50, between 50 and 84, or 85 and above"
+            "Both outputs are equivalent if both are the same REJECTED code, or if both produce a score that falls in the same tier: below 50, between 50 and 84, or 85 and above"
         )
-
-        if "REJECTED" in result.upper():
-            return "0"
-        try:
-            digits = ''.join(filter(str.isdigit, result.split('\n')[-1]))
-            score = digits if digits else "0"
-            return score if u256(score) <= u256(100) else "100"
-        except:
-            return "0"
+        return result
