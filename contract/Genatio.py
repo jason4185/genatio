@@ -23,7 +23,7 @@ class Genatio(gl.Contract):
         wallet_address: str,
         title: str,
         story: str,
-        goal_usd: int,
+        goal_usd: u256,
         github_repo_url: str,
         github_file_url: str,
         live_url: str,
@@ -107,8 +107,7 @@ class Genatio(gl.Contract):
                 "donor_count": 0,
                 "chains_used": [],
                 "milestones": [],
-                "milestone_stage": 0,
-                "created_at": gl.get_block_number()
+                "milestone_stage": 0
             }
             campaigns.append(campaign)
             self.campaigns = json.dumps(campaigns)
@@ -125,8 +124,8 @@ class Genatio(gl.Contract):
         self,
         wallet_address: str,
         campaign_id: str,
-        amount_token: float,
-        amount_usd: int,
+        amount_token: str,
+        amount_usd: u256,
         chain: str,
         tx_hash: str
     ) -> str:
@@ -158,8 +157,7 @@ class Genatio(gl.Contract):
             "amount_token": amount_token,
             "amount_usd": amount_usd,
             "chain": chain,
-            "tx_hash": tx_hash,
-            "block": gl.get_block_number()
+            "tx_hash": tx_hash
         })
 
         self.campaigns = json.dumps(campaigns)
@@ -226,8 +224,7 @@ Reply only APPROVED or REJECTED with one sentence reason."""
             "stage": stage + 1,
             "proof_url": proof_url,
             "amount_released": release_amount,
-            "verification": verification,
-            "block": gl.get_block_number()
+            "verification": verification
         })
 
         if campaign["milestone_stage"] >= 3:
@@ -267,8 +264,7 @@ Reply only APPROVED or REJECTED with one sentence reason."""
 
         vouches.append({
             "campaign_id": campaign_id,
-            "wallet": wallet_address,
-            "block": gl.get_block_number()
+            "wallet": wallet_address
         })
 
         campaign_vouches = [v for v in vouches if v["campaign_id"] == campaign_id]
@@ -300,8 +296,7 @@ Reply only APPROVED or REJECTED with one sentence reason."""
             "campaign_id": campaign_id,
             "raised_by": wallet_address,
             "evidence_url": evidence_url,
-            "status": "open",
-            "block": gl.get_block_number()
+            "status": "open"
         })
 
         campaign["status"] = "disputed"
@@ -430,7 +425,7 @@ Otherwise reply with total score as a number only. Maximum 80."""
     def _verify_open_source(
         self,
         wallet_address: str,
-        wallet_score: int,
+        wallet_score: u256,
         github_repo_url: str,
         github_file_url: str,
         live_url: str,
