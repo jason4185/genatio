@@ -26,7 +26,6 @@ class Genatio(gl.Contract):
         upload_url_1: str,
         upload_url_2: str,
         upload_url_3: str,
-        community_url: str,
         funding_purpose: str
     ) -> str:
         # Blacklist check
@@ -46,7 +45,6 @@ class Genatio(gl.Contract):
             upload_url_1,
             upload_url_2,
             upload_url_3,
-            community_url,
             funding_purpose
         )
 
@@ -90,7 +88,6 @@ class Genatio(gl.Contract):
                 "upload_url_1": upload_url_1,
                 "upload_url_2": upload_url_2,
                 "upload_url_3": upload_url_3,
-                "community_url": community_url,
                 "funding_purpose": funding_purpose,
                 "status": status,
                 "score": str(score),
@@ -429,7 +426,6 @@ Is the dispute valid? Reply only VALID or INVALID with one sentence reason."""
         upload_url_1: str,
         upload_url_2: str,
         upload_url_3: str,
-        community_url: str,
         funding_purpose: str
     ) -> str:
         parts = github_repo_url.rstrip('/').split('/')
@@ -531,12 +527,11 @@ All 3 provided and load = 15pts
 1 or 2 provided = 7pts
 None provided = 0pts
 
-Factor 9 — Community proof:
-Community link: {community_url}
-Fetch and check if real active community exists.
-Real active community = 10pts
-Small but real = 5pts
-No community = 0pts
+Factor 9 — Community engagement (from GitHub API data already fetched):
+Check stargazers_count, forks_count, watchers_count, and contributors from the repo data.
+Stars above 10 and forks above 3 = 10pts (strong community)
+Stars above 3 or forks above 1 = 5pts (small but real)
+Stars 0 and forks 0 = 0pts (no community)
 
 Factor 10 — Wallet trust score:
 Use WALLET_SCORE from Step 2.
