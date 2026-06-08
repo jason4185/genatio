@@ -1,0 +1,10 @@
+{
+  "name": "genatio",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "cd frontend && npm install && npm run build",
+    "frontend": "cd frontend && npm install && npm run dev"
+  }
+}
