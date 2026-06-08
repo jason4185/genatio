@@ -435,6 +435,11 @@ Is the dispute valid? Reply only VALID or INVALID with one sentence reason."""
         github_commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
 
         def verify():
+            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/address/{wallet_address}", mode="text")
+            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc", mode="text")
+            repo_data = gl.nondet.web.render(github_api_url, mode="text")
+            commits_data = gl.nondet.web.render(github_commits_url, mode="text")
+
             return gl.nondet.exec_prompt(
                 f"""You are verifying an open source project grant application on Genatio.
 Be thorough, honest, and strict. Follow every step exactly and in order.
@@ -448,11 +453,11 @@ Story: {story}
 === STEP 2: WALLET TRUST CHECK ===
 Wallet address: {wallet_address}
 
-Fetch Bradbury testnet explorer:
-{gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/address/{wallet_address}", mode="text")}
+Bradbury testnet explorer data:
+{bradbury_data}
 
-Fetch Ethereum Mainnet transactions via Etherscan:
-{gl.nondet.web.render(f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc", mode="text")}
+Ethereum Mainnet transactions:
+{eth_data}
 
 Score wallet age (use best age from either chain):
 2 to 3 months = 20pts
@@ -474,11 +479,11 @@ Maximum wallet trust score = 80pts. Note it as WALLET_SCORE.
 
 === STEP 3: GITHUB VERIFICATION ===
 
-Fetch repo data:
-{gl.nondet.web.render(github_api_url, mode="text")}
+GitHub repo data:
+{repo_data}
 
-Fetch commit history:
-{gl.nondet.web.render(github_commits_url, mode="text")}
+GitHub commit history:
+{commits_data}
 
 Factor 1 — Repo exists and is public:
 Check if repo data loaded and private is false.
@@ -527,11 +532,11 @@ All 3 provided and load = 15pts
 1 or 2 provided = 7pts
 None provided = 0pts
 
-Factor 9 — Community engagement (from GitHub API data already fetched):
-Check stargazers_count, forks_count, watchers_count, and contributors from the repo data.
-Stars above 10 and forks above 3 = 10pts (strong community)
-Stars above 3 or forks above 1 = 5pts (small but real)
-Stars 0 and forks 0 = 0pts (no community)
+Factor 9 — Community engagement (from GitHub repo data):
+Check stargazers_count, forks_count from repo_data.
+Stars above 10 and forks above 3 = 10pts
+Stars above 3 or forks above 1 = 5pts
+Stars 0 and forks 0 = 0pts
 
 Factor 10 — Wallet trust score:
 Use WALLET_SCORE from Step 2.
