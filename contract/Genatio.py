@@ -19,7 +19,7 @@ class Genatio(gl.Contract):
         wallet_address: str,
         title: str,
         story: str,
-        goal_usd: int,
+        goal_usd: u256,
         github_repo_url: str,
         github_file_url: str,
         live_url: str,
@@ -100,7 +100,7 @@ class Genatio(gl.Contract):
 
         return json.dumps({
             "status": status,
-            "score": score,
+            "score": str(score),
             "campaign_id": campaign_id if status != "rejected" else None,
             "reason": None if status != "rejected" else "Score too low. Improve your evidence and resubmit."
         })
@@ -111,7 +111,7 @@ class Genatio(gl.Contract):
         wallet_address: str,
         campaign_id: str,
         amount_token: str,
-        amount_usd: int,
+        amount_usd: u256,
         chain: str,
         tx_hash: str
     ) -> str:
@@ -179,7 +179,7 @@ class Genatio(gl.Contract):
 Project title: {campaign['title']}
 What they promised to build: {campaign['funding_purpose']}
 GitHub repo: {campaign['github_repo_url']}
-Milestone stage: {stage + 1} of 3
+Milestone stage: {u256(stage) + u256(1)} of 3
 
 Recent commits from GitHub API:
 {commits_data}
@@ -352,18 +352,30 @@ Otherwise reply with total score as a number only. Maximum 80."""
         if not campaign or not dispute:
             return json.dumps({"status": "error", "reason": "Not found"})
 
+        if dispute_index < 0:
+            return json.dumps({"status": "error", "reason": "No open dispute found"})
+
         def resolve():
+            evidence_data = gl.nondet.web.render(dispute['evidence_url'], mode="text")
+            repo_data = gl.nondet.web.render(campaign['github_repo_url'], mode="text")
             return gl.nondet.exec_prompt(
                 f"""You are resolving a dispute for an open source grant campaign.
 
 Campaign title: {campaign['title']}
 Campaign story: {campaign['story']}
 GitHub repo: {campaign['github_repo_url']}
-Live URL: {campaign['live_url']}
-Dispute evidence: {dispute['evidence_url']}
 
-Fetch and read the dispute evidence URL and the campaign details.
-Is the dispute valid? Reply only VALID or INVALID with one sentence reason."""
+GitHub repo data:
+{repo_data}
+
+Live URL: {campaign['live_url']}
+Dispute evidence URL: {dispute['evidence_url']}
+
+Dispute evidence content:
+{evidence_data}
+
+Based on the evidence content and the campaign details, is the dispute valid?
+Reply only VALID or INVALID with one sentence reason."""
             )
         resolution = gl.eq_principle.prompt_comparative(
             resolve,
