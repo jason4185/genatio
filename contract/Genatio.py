@@ -22,10 +22,6 @@ class Genatio(gl.Contract):
         goal_usd: u256,
         duration_days: u256,
         github_repo_url: str,
-        live_url: str,
-        upload_url_1: str,
-        upload_url_2: str,
-        upload_url_3: str,
         funding_purpose: str
     ) -> str:
         # Blacklist check
@@ -45,10 +41,6 @@ class Genatio(gl.Contract):
             title,
             story,
             github_repo_url,
-            live_url,
-            upload_url_1,
-            upload_url_2,
-            upload_url_3,
             funding_purpose
         )
 
@@ -79,10 +71,6 @@ class Genatio(gl.Contract):
             "duration_days": str(duration_days),
             "raised_usd": "0",
             "github_repo_url": github_repo_url,
-            "live_url": live_url,
-            "upload_url_1": upload_url_1,
-            "upload_url_2": upload_url_2,
-            "upload_url_3": upload_url_3,
             "funding_purpose": funding_purpose,
             "status": status,
             "score": str(score),
@@ -368,10 +356,6 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
         title: str,
         story: str,
         github_repo_url: str,
-        live_url: str,
-        upload_url_1: str,
-        upload_url_2: str,
-        upload_url_3: str,
         funding_purpose: str
     ) -> str:
         parts = github_repo_url.rstrip('/').split('/')
@@ -385,7 +369,6 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
             eth_data = gl.nondet.web.render(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available"
             repo_data = gl.nondet.web.render(github_api_url, mode="text") or "No data available"
             commits_data = gl.nondet.web.render(github_commits_url, mode="text") or "No data available"
-            live_data = (gl.nondet.web.render(live_url, mode="text") or "No data available") if live_url else "No data available"
 
             return gl.nondet.exec_prompt(
                 f"""You are verifying an open source project grant application on Genatio.
@@ -398,12 +381,6 @@ SCORING RULES:
 - If neither chain has data score wallet trust 0pts and continue — do not reject for missing data alone
 - Missing screenshots score 0pts — do not reject
 - Every factor is independent — one missing factor never blocks the others
-
-CRITICAL: Respond with TEXT ONLY. Do NOT call any tools.
-- Do NOT use Read, Bash, Grep, Glob, Edit, Write, or ANY other tool.
-- You already have all the context you need in the conversation above.
-- Tool calls will be REJECTED and will waste your only turn — you will fail the task.
-- Your entire response must be plain text: an <analysis> block followed by a <summary> block.
 
 IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
 Be thorough, honest, and strict. Follow every step exactly and in order.
@@ -480,44 +457,29 @@ Over 90 days old = 10pts
 7 to 30 days = 3pts
 Under 7 days = 0pts
 
-Factor 6 — Live URL accessible:
-Live URL: {live_url}
-Fetched content: {live_data}
-Loads with real content = 15pts
-Loads but sparse = 7pts
-Does not load or empty = 0pts
-
-Factor 7 — Funding purpose specific:
+Factor 6 — Funding purpose specific:
 Read this funding purpose: {funding_purpose}
 Very specific deliverables = 20pts
 Somewhat specific = 10pts
 Vague = 0pts
 
-Factor 8 — Story quality:
+Factor 7 — Story quality:
 Read this story: {story}
 Detailed and convincing = 15pts
 Basic = 7pts
 Too short or vague = 0pts
 
-Factor 9 — Screenshots provided:
-Screenshot 1: {upload_url_1}
-Screenshot 2: {upload_url_2}
-Screenshot 3: {upload_url_3}
-All 3 provided and load = 15pts
-1 or 2 provided = 7pts
-None provided = 0pts
-
-Factor 10 — Community engagement (from GitHub repo data):
+Factor 8 — Community engagement (from GitHub repo data):
 Stars above 10 and forks above 3 = 10pts
 Stars above 3 or forks above 1 = 5pts
 Stars 0 and forks 0 = 0pts
 
-Factor 11 — Wallet trust score:
+Factor 9 — Wallet trust score:
 Use WALLET_SCORE from Step 2.
 Normalize to max 10pts: round(WALLET_SCORE / 4).
 
-Add all factor scores. Maximum = 170pts.
-Normalize to 100: round((total / 170) * 100).
+Add all factor scores. Maximum = 140pts.
+Normalize to 100: round((total / 140) * 100).
 
 === FINAL REPLY ===
 Reply in this exact format and nothing else:
