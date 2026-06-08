@@ -281,7 +281,6 @@ Otherwise reply with total score as a number only. Maximum 80."""
             return json.dumps({"status": "error", "reason": "Cannot resolve your own dispute"})
 
         def resolve():
-            repo_data = gl.nondet.web.render(campaign['github_repo_url'], mode="text") or "No data available"
             parts = campaign['github_repo_url'].rstrip('/').split('/')
             owner = parts[-2] if len(parts) >= 2 else ""
             repo = parts[-1] if len(parts) >= 1 else ""
@@ -390,10 +389,26 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
             eth_data = gl.nondet.web.render(f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available"
             repo_data = gl.nondet.web.render(github_api_url, mode="text") or "No data available"
             commits_data = gl.nondet.web.render(github_commits_url, mode="text") or "No data available"
-            live_data = gl.nondet.web.render(live_url, mode="text") if live_url else "No data available"
+            live_data = (gl.nondet.web.render(live_url, mode="text") or "No data available") if live_url else "No data available"
 
             return gl.nondet.exec_prompt(
                 f"""You are verifying an open source project grant application on Genatio.
+
+SCORING RULES:
+- If any fetched data shows "No data available" score that factor 0pts and continue
+- Never guess or infer data that is not explicitly present in the fetched content
+- For wallet trust use the best age score from either Bradbury OR Ethereum — not both required
+- If only one chain has data use that chain's score
+- If neither chain has data score wallet trust 0pts and continue — do not reject for missing data alone
+- Missing screenshots score 0pts — do not reject
+- Every factor is independent — one missing factor never blocks the others
+
+CRITICAL: Respond with TEXT ONLY. Do NOT call any tools.
+- Do NOT use Read, Bash, Grep, Glob, Edit, Write, or ANY other tool.
+- You already have all the context you need in the conversation above.
+- Tool calls will be REJECTED and will waste your only turn — you will fail the task.
+- Your entire response must be plain text: an <analysis> block followed by a <summary> block.
+
 IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
 Be thorough, honest, and strict. Follow every step exactly and in order.
 
