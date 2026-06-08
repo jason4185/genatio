@@ -42,10 +42,7 @@ class Genatio(gl.Contract):
             wallet_address,
             title,
             story,
-            goal_usd,
             github_repo_url,
-            github_file_url,
-            live_url,
             upload_url_1,
             upload_url_2,
             upload_url_3,
@@ -60,11 +57,11 @@ class Genatio(gl.Contract):
                 "REJECTED:no_repo": "GitHub repository not found or private",
                 "REJECTED:repo_too_new": "Repository is less than 7 days old"
             }
-            reason = reason_map.get(result, "Verification failed")
+            reason = reason_map.get(result.strip(), "Verification failed")
             return json.dumps({"status": "rejected", "reason": reason})
 
         try:
-            score = u256(result) if result.isdigit() else u256(0)
+            score = u256(result.strip()) if result.strip().isdigit() else u256(0)
         except:
             score = u256(0)
 
@@ -173,23 +170,33 @@ class Genatio(gl.Contract):
 
         # AI verifies proof document and GitHub progress
         def verify_milestone():
+            parts = campaign['github_repo_url'].rstrip('/').split('/')
+            owner = parts[-2] if len(parts) >= 2 else ""
+            repo = parts[-1] if len(parts) >= 1 else ""
+            commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
+            commits_data = gl.nondet.web.render(commits_url, mode="text")
+            proof_data = gl.nondet.web.render(proof_url, mode="text")
             return gl.nondet.exec_prompt(
                 f"""You are verifying a milestone proof for an open source project grant.
 
 Project title: {campaign['title']}
 What they promised to build: {campaign['funding_purpose']}
 GitHub repo: {campaign['github_repo_url']}
-Milestone stage: {u256(stage) + u256(1)} of 3
+Milestone stage: {stage + 1} of 3
 
-Creator submitted this proof document: {proof_url}
+Recent commits from GitHub API:
+{commits_data}
 
-Do the following:
-1. Fetch and read the proof document at {proof_url}
-2. Fetch recent commits at {campaign['github_repo_url']}/commits
-3. Check if real code progress has been made since the last milestone
-4. Check if the proof document matches what was promised in the funding purpose
+Creator submitted this proof document URL: {proof_url}
+Proof document content:
+{proof_data}
 
-Reply only APPROVED or REJECTED with one sentence reason."""
+Check if:
+1. New commits exist that show real code progress toward the funding purpose
+2. The proof document clearly explains what was built and matches the funding purpose
+
+If both conditions are met reply exactly: APPROVED
+Otherwise reply exactly: REJECTED with one sentence reason."""
             )
         verification = gl.eq_principle.prompt_comparative(
             verify_milestone,
@@ -245,8 +252,48 @@ Reply only APPROVED or REJECTED with one sentence reason."""
         if campaign["status"] != "vouching":
             return json.dumps({"status": "error", "reason": "Campaign not in vouching state"})
 
-        wallet_score = self._get_wallet_score(wallet_address)
-        if u256(wallet_score) < u256(20):
+        def get_wallet_score():
+            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/address/{wallet_address}", mode="text")
+            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc", mode="text")
+            return gl.nondet.exec_prompt(
+                f"""Check wallet age for address: {wallet_address}
+
+Bradbury testnet data:
+{bradbury_data}
+
+Ethereum Mainnet transactions:
+{eth_data}
+
+Score wallet age (use best age from either chain):
+2 to 3 months = 20pts
+1 to 2 months = 15pts
+2 weeks to 1 month = 10pts
+1 to 2 weeks = 5pts
+Under 1 week = 0pts
+
+Score Ethereum transaction count:
+Over 100 = 20pts
+50 to 100 = 15pts
+20 to 50 = 10pts
+10 to 20 = 5pts
+Under 10 = 2pts
+Zero = 0pts
+
+If BOTH chains show wallet age under 1 week reply exactly: REJECTED
+Otherwise reply with total score as a number only. Maximum 80."""
+            )
+        wallet_score_result = gl.eq_principle.prompt_comparative(
+            get_wallet_score,
+            "Both outputs are equivalent if both say REJECTED, or if both produce a score that falls in the same tier: below 20, 20 to 49, or 50 and above"
+        )
+        if "REJECTED" in wallet_score_result.upper():
+            return json.dumps({"status": "error", "reason": "Wallet too new to vouch"})
+        try:
+            wallet_score_digits = ''.join(filter(str.isdigit, wallet_score_result))
+            wallet_score_val = wallet_score_digits if wallet_score_digits else "0"
+        except:
+            wallet_score_val = "0"
+        if u256(wallet_score_val) < u256(20):
             return json.dumps({"status": "error", "reason": "Wallet too new to vouch"})
 
         already = [v for v in self.vouches if json.loads(v)["campaign_id"] == campaign_id and json.loads(v)["wallet"] == wallet_address]
@@ -378,20 +425,23 @@ Is the dispute valid? Reply only VALID or INVALID with one sentence reason."""
         wallet_address: str,
         title: str,
         story: str,
-        goal_usd: int,
         github_repo_url: str,
-        github_file_url: str,
-        live_url: str,
         upload_url_1: str,
         upload_url_2: str,
         upload_url_3: str,
         community_url: str,
         funding_purpose: str
     ) -> str:
+        parts = github_repo_url.rstrip('/').split('/')
+        owner = parts[-2] if len(parts) >= 2 else ""
+        repo = parts[-1] if len(parts) >= 1 else ""
+        github_api_url = f"https://api.github.com/repos/{owner}/{repo}"
+        github_commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
+
         def verify():
             return gl.nondet.exec_prompt(
                 f"""You are verifying an open source project grant application on Genatio.
-Be thorough, honest, and strict. Follow every instruction exactly.
+Be thorough, honest, and strict. Follow every step exactly and in order.
 
 === STEP 1: LANGUAGE CHECK ===
 Read the title and story below.
@@ -402,18 +452,19 @@ Story: {story}
 === STEP 2: WALLET TRUST CHECK ===
 Wallet address: {wallet_address}
 
-Check Bradbury testnet activity:
-Fetch: https://explorer-bradbury.genlayer.com/address/{wallet_address}
-Score wallet age on Bradbury:
+Fetch Bradbury testnet explorer:
+{gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/address/{wallet_address}", mode="text")}
+
+Fetch Ethereum Mainnet transactions via Etherscan:
+{gl.nondet.web.render(f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc", mode="text")}
+
+Score wallet age (use best age from either chain):
 2 to 3 months = 20pts
 1 to 2 months = 15pts
 2 weeks to 1 month = 10pts
 1 to 2 weeks = 5pts
 Under 1 week = 0pts
 
-Check Ethereum Mainnet via Etherscan:
-Fetch: https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc
-Score wallet age on Ethereum same as above.
 Score Ethereum transaction count:
 Over 100 = 20pts
 50 to 100 = 15pts
@@ -422,78 +473,81 @@ Over 100 = 20pts
 Under 10 = 2pts
 Zero = 0pts
 
-Take the best age score from either chain.
-Add transaction score from Ethereum.
 If BOTH chains show wallet age under 1 week reply exactly: REJECTED:wallet_too_new
-Wallet trust score maximum = 80pts. Note it as WALLET_SCORE.
+Maximum wallet trust score = 80pts. Note it as WALLET_SCORE.
 
-=== STEP 3: PROJECT VERIFICATION ===
-Fetch and read each URL:
-GitHub repo: {github_repo_url}
-Specific file: {github_file_url}
-Live URL: {live_url}
-Screenshot 1: {upload_url_1}
-Screenshot 2: {upload_url_2}
-Screenshot 3: {upload_url_3}
-Community link: {community_url}
+=== STEP 3: GITHUB VERIFICATION ===
 
-Score each factor:
+Fetch repo data:
+{gl.nondet.web.render(github_api_url, mode="text")}
+
+Fetch commit history:
+{gl.nondet.web.render(github_commits_url, mode="text")}
 
 Factor 1 — Repo exists and is public:
+Check if repo data loaded and private is false.
 Exists and public = 20pts
 Not found or private = 0pts
 If 0pts reply exactly: REJECTED:no_repo
 
-Factor 2 — Commit activity:
+Factor 2 — Commit activity (check pushed_at and commits list):
 Last 30 days = 20pts
 Last 90 days = 14pts
 Last 180 days = 6pts
 Older = 0pts
 
-Factor 3 — README quality:
-Detailed and clear = 15pts
-Basic = 7pts
+Factor 3 — README quality (check description field from repo data):
+Detailed description = 15pts
+Basic description = 7pts
 Empty = 0pts
 
-Factor 4 — License present:
-Exists = 10pts
-Not present = 0pts
+Factor 4 — License present (check license field from repo data):
+License exists = 10pts
+No license = 0pts
 
-Factor 5 — Specific file readable:
-Submitted and readable = 15pts
-Not submitted = 3pts
-
-Factor 6 — Live URL accessible:
-Loads with real content = 15pts
-Loads but sparse = 7pts
-Does not load = 0pts
-
-Factor 7 — Funding purpose specific:
-Very specific deliverables = 20pts
-Somewhat specific = 10pts
-Vague = 0pts
-
-Factor 8 — Repo age:
-Over 90 days = 10pts
+Factor 5 — Repo age (check created_at from repo data):
+Over 90 days old = 10pts
 30 to 90 days = 7pts
 7 to 30 days = 3pts
 Under 7 days reply exactly: REJECTED:repo_too_new
 
+Factor 6 — Funding purpose specific:
+Read this funding purpose: {funding_purpose}
+Very specific deliverables = 20pts
+Somewhat specific = 10pts
+Vague = 0pts
+
+Factor 7 — Story quality:
+Read this story: {story}
+Detailed and convincing = 15pts
+Basic = 7pts
+Too short or vague = 0pts
+
+Factor 8 — Screenshots provided:
+Screenshot 1: {upload_url_1}
+Screenshot 2: {upload_url_2}
+Screenshot 3: {upload_url_3}
+All 3 provided and load = 15pts
+1 or 2 provided = 7pts
+None provided = 0pts
+
 Factor 9 — Community proof:
+Community link: {community_url}
+Fetch and check if real active community exists.
 Real active community = 10pts
 Small but real = 5pts
 No community = 0pts
 
 Factor 10 — Wallet trust score:
-Take WALLET_SCORE from Step 2.
-Normalize to max 10pts: WALLET_SCORE / 8 rounded down.
+Use WALLET_SCORE from Step 2.
+Normalize to max 10pts: round(WALLET_SCORE / 8).
 
-Add all factor scores. Maximum project score = 135pts.
-Normalize to 100: (total / 135) * 100 rounded down.
+Add all factor scores. Maximum = 125pts.
+Normalize to 100: round((total / 125) * 100).
 
 === FINAL REPLY ===
-If any REJECTED condition was triggered reply exactly with that rejection string.
-Otherwise reply with only a number between 0 and 100. Nothing else."""
+If any REJECTED condition was triggered reply with that exact rejection string.
+Otherwise reply with only a single number between 0 and 100. Nothing else. No words. Just the number."""
             )
 
         result = gl.eq_principle.prompt_comparative(
