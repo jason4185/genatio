@@ -382,7 +382,6 @@ SCORING RULES:
 - For wallet trust use the best age score from either Bradbury OR Ethereum — not both required
 - If only one chain has data use that chain's score
 - If neither chain has data score wallet trust 0pts and continue — do not reject for missing data alone
-- Missing screenshots score 0pts — do not reject
 - Every factor is independent — one missing factor never blocks the others
 
 IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
@@ -502,13 +501,13 @@ Example:
 82
 Verification Summary:
 - Repository is active with recent commits and a well-documented README
-- Live application is accessible and loads real content
+- GitHub repository has active commits and strong community engagement
 - Project has demonstrated community interest with stars and forks
 
 Areas for Improvement:
 - No open source license found — add a LICENSE file to your repository
 - Wallet activity on both chains is limited — a more established wallet improves trust score
-- Screenshots were not provided — upload 3 screenshots to improve your score"""
+- Add an open source license to your repository to improve your score"""
             )
 
         result = gl.eq_principle.prompt_comparative(
