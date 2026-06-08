@@ -151,10 +151,12 @@ class Genatio(gl.Contract):
             return json.dumps({"status": "error", "reason": "Campaign not in vouching state"})
 
         def get_wallet_score():
-            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/address/{wallet_address}", mode="text")
-            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc", mode="text")
+            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/address/{wallet_address}", mode="text") or "No data available"
+            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available"
             return gl.nondet.exec_prompt(
-                f"""Check wallet age for address: {wallet_address}
+                f"""IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
+
+Check wallet age for address: {wallet_address}
 
 Bradbury testnet data:
 {bradbury_data}
@@ -279,15 +281,17 @@ Otherwise reply with total score as a number only. Maximum 80."""
             return json.dumps({"status": "error", "reason": "Cannot resolve your own dispute"})
 
         def resolve():
-            repo_data = gl.nondet.web.render(campaign['github_repo_url'], mode="text")
+            repo_data = gl.nondet.web.render(campaign['github_repo_url'], mode="text") or "No data available"
             parts = campaign['github_repo_url'].rstrip('/').split('/')
             owner = parts[-2] if len(parts) >= 2 else ""
             repo = parts[-1] if len(parts) >= 1 else ""
             github_api_url = f"https://api.github.com/repos/{owner}/{repo}"
-            github_data = gl.nondet.web.render(github_api_url, mode="text")
-            commits_data = gl.nondet.web.render(f"https://api.github.com/repos/{owner}/{repo}/commits", mode="text")
+            github_data = gl.nondet.web.render(github_api_url, mode="text") or "No data available"
+            commits_data = gl.nondet.web.render(f"https://api.github.com/repos/{owner}/{repo}/commits", mode="text") or "No data available"
             return gl.nondet.exec_prompt(
-                f"""You are resolving a dispute for an open source grant campaign on Genatio.
+                f"""IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
+
+You are resolving a dispute for an open source grant campaign on Genatio.
 
 CAMPAIGN DETAILS:
 Title: {campaign['title']}
@@ -382,14 +386,15 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
         github_commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
 
         def verify():
-            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/address/{wallet_address}", mode="text")
-            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc", mode="text")
-            repo_data = gl.nondet.web.render(github_api_url, mode="text")
-            commits_data = gl.nondet.web.render(github_commits_url, mode="text")
-            live_data = gl.nondet.web.render(live_url, mode="text")
+            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/address/{wallet_address}", mode="text") or "No data available"
+            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available"
+            repo_data = gl.nondet.web.render(github_api_url, mode="text") or "No data available"
+            commits_data = gl.nondet.web.render(github_commits_url, mode="text") or "No data available"
+            live_data = gl.nondet.web.render(live_url, mode="text") if live_url else "No data available"
 
             return gl.nondet.exec_prompt(
                 f"""You are verifying an open source project grant application on Genatio.
+IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
 Be thorough, honest, and strict. Follow every step exactly and in order.
 
 === STEP 1: LANGUAGE CHECK ===
