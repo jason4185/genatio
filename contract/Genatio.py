@@ -4,18 +4,14 @@ from genlayer import *
 import json
 
 class Genatio(gl.Contract):
-    campaigns: str
-    donations: str
-    disputes: str
-    blacklist: str
-    vouches: str
+    campaigns: TreeMap[str, str]
+    donations: DynArray[str]
+    disputes: DynArray[str]
+    blacklist: DynArray[str]
+    vouches: DynArray[str]
 
     def __init__(self):
-        self.campaigns = json.dumps([])
-        self.donations = json.dumps([])
-        self.disputes = json.dumps([])
-        self.blacklist = json.dumps([])
-        self.vouches = json.dumps([])
+        pass
 
     @gl.public.write
     def create_campaign(
@@ -33,15 +29,12 @@ class Genatio(gl.Contract):
         community_url: str,
         funding_purpose: str
     ) -> str:
-        campaigns = json.loads(self.campaigns)
-        blacklist = json.loads(self.blacklist)
-
         # Blacklist check
-        if wallet_address in blacklist:
+        if wallet_address in self.blacklist:
             return json.dumps({"status": "rejected", "reason": "Wallet is blacklisted"})
 
         # Duplicate check
-        active = [c for c in campaigns if c["wallet"] == wallet_address and c["status"] in ["active", "vouching"]]
+        active = [json.loads(v) for v in self.campaigns.values() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] in ["active", "vouching"]]
         if len(active) >= 2:
             return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
 
@@ -82,7 +75,7 @@ class Genatio(gl.Contract):
         else:
             status = "rejected"
 
-        campaign_id = str(len(campaigns) + 1)
+        campaign_id = str(len(self.campaigns) + 1)
 
         if status != "rejected":
             campaign = {
@@ -109,8 +102,7 @@ class Genatio(gl.Contract):
                 "milestones": [],
                 "milestone_stage": 0
             }
-            campaigns.append(campaign)
-            self.campaigns = json.dumps(campaigns)
+            self.campaigns[campaign_id] = json.dumps(campaign)
 
         return json.dumps({
             "status": status,
@@ -129,10 +121,7 @@ class Genatio(gl.Contract):
         chain: str,
         tx_hash: str
     ) -> str:
-        campaigns = json.loads(self.campaigns)
-        donations = json.loads(self.donations)
-
-        campaign = next((c for c in campaigns if c["id"] == campaign_id), None)
+        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
         if not campaign:
             return json.dumps({"status": "error", "reason": "Campaign not found"})
         if campaign["status"] != "active":
@@ -151,17 +140,15 @@ class Genatio(gl.Contract):
         else:
             campaign["escrowed_usd"] += amount_usd
 
-        donations.append({
+        self.campaigns[campaign_id] = json.dumps(campaign)
+        self.donations.append(json.dumps({
             "campaign_id": campaign_id,
             "wallet": wallet_address,
             "amount_token": amount_token,
             "amount_usd": amount_usd,
             "chain": chain,
             "tx_hash": tx_hash
-        })
-
-        self.campaigns = json.dumps(campaigns)
-        self.donations = json.dumps(donations)
+        }))
 
         return json.dumps({"status": "success"})
 
@@ -172,9 +159,7 @@ class Genatio(gl.Contract):
         campaign_id: str,
         proof_url: str
     ) -> str:
-        campaigns = json.loads(self.campaigns)
-
-        campaign = next((c for c in campaigns if c["id"] == campaign_id), None)
+        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
         if not campaign:
             return json.dumps({"status": "error", "reason": "Campaign not found"})
         if campaign["wallet"] != wallet_address:
@@ -230,7 +215,7 @@ Reply only APPROVED or REJECTED with one sentence reason."""
         if campaign["milestone_stage"] >= 3:
             campaign["status"] = "completed"
 
-        self.campaigns = json.dumps(campaigns)
+        self.campaigns[campaign_id] = json.dumps(campaign)
 
         return json.dumps({
             "status": "success",
@@ -245,10 +230,7 @@ Reply only APPROVED or REJECTED with one sentence reason."""
         wallet_address: str,
         campaign_id: str
     ) -> str:
-        campaigns = json.loads(self.campaigns)
-        vouches = json.loads(self.vouches)
-
-        campaign = next((c for c in campaigns if c["id"] == campaign_id), None)
+        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
         if not campaign:
             return json.dumps({"status": "error", "reason": "Campaign not found"})
         if campaign["status"] != "vouching":
@@ -258,21 +240,17 @@ Reply only APPROVED or REJECTED with one sentence reason."""
         if wallet_score < 20:
             return json.dumps({"status": "error", "reason": "Wallet too new to vouch"})
 
-        already = [v for v in vouches if v["campaign_id"] == campaign_id and v["wallet"] == wallet_address]
+        already = [v for v in self.vouches if json.loads(v)["campaign_id"] == campaign_id and json.loads(v)["wallet"] == wallet_address]
         if already:
             return json.dumps({"status": "error", "reason": "Already vouched"})
 
-        vouches.append({
-            "campaign_id": campaign_id,
-            "wallet": wallet_address
-        })
+        self.vouches.append(json.dumps({"campaign_id": campaign_id, "wallet": wallet_address}))
 
-        campaign_vouches = [v for v in vouches if v["campaign_id"] == campaign_id]
+        campaign_vouches = [v for v in self.vouches if json.loads(v)["campaign_id"] == campaign_id]
         if len(campaign_vouches) >= 5:
             campaign["status"] = "active"
 
-        self.vouches = json.dumps(vouches)
-        self.campaigns = json.dumps(campaigns)
+        self.campaigns[campaign_id] = json.dumps(campaign)
 
         return json.dumps({"status": "success", "vouch_count": len(campaign_vouches)})
 
@@ -283,25 +261,21 @@ Reply only APPROVED or REJECTED with one sentence reason."""
         campaign_id: str,
         evidence_url: str
     ) -> str:
-        campaigns = json.loads(self.campaigns)
-        disputes = json.loads(self.disputes)
-
-        campaign = next((c for c in campaigns if c["id"] == campaign_id), None)
+        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
         if not campaign:
             return json.dumps({"status": "error", "reason": "Campaign not found"})
 
-        dispute_id = str(len(disputes) + 1)
-        disputes.append({
+        dispute_id = str(len(self.disputes) + 1)
+        self.disputes.append(json.dumps({
             "id": dispute_id,
             "campaign_id": campaign_id,
             "raised_by": wallet_address,
             "evidence_url": evidence_url,
             "status": "open"
-        })
+        }))
 
         campaign["status"] = "disputed"
-        self.disputes = json.dumps(disputes)
-        self.campaigns = json.dumps(campaigns)
+        self.campaigns[campaign_id] = json.dumps(campaign)
 
         return json.dumps({"status": "success", "dispute_id": dispute_id})
 
@@ -311,11 +285,16 @@ Reply only APPROVED or REJECTED with one sentence reason."""
         wallet_address: str,
         campaign_id: str
     ) -> str:
-        campaigns = json.loads(self.campaigns)
-        disputes = json.loads(self.disputes)
+        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
 
-        campaign = next((c for c in campaigns if c["id"] == campaign_id), None)
-        dispute = next((d for d in disputes if d["campaign_id"] == campaign_id and d["status"] == "open"), None)
+        dispute = None
+        dispute_index = -1
+        for i in range(len(self.disputes)):
+            d = json.loads(self.disputes[i])
+            if d["campaign_id"] == campaign_id and d["status"] == "open":
+                dispute = d
+                dispute_index = i
+                break
 
         if not campaign or not dispute:
             return json.dumps({"status": "error", "reason": "Not found"})
@@ -335,18 +314,16 @@ Is the dispute valid? Reply only VALID or INVALID with one sentence reason."""
 
         if "VALID" in resolution.upper():
             campaign["status"] = "rejected"
-            blacklist = json.loads(self.blacklist)
-            if campaign["wallet"] not in blacklist:
-                blacklist.append(campaign["wallet"])
-            self.blacklist = json.dumps(blacklist)
+            if campaign["wallet"] not in self.blacklist:
+                self.blacklist.append(campaign["wallet"])
         else:
             campaign["status"] = "active"
 
         dispute["status"] = "resolved"
         dispute["resolution"] = resolution
+        self.disputes[dispute_index] = json.dumps(dispute)
 
-        self.disputes = json.dumps(disputes)
-        self.campaigns = json.dumps(campaigns)
+        self.campaigns[campaign_id] = json.dumps(campaign)
 
         return json.dumps({"status": "success", "resolution": resolution})
 
@@ -354,36 +331,31 @@ Is the dispute valid? Reply only VALID or INVALID with one sentence reason."""
 
     @gl.public.view
     def get_campaigns(self, status: str) -> str:
-        campaigns = json.loads(self.campaigns)
+        campaigns = [json.loads(v) for v in self.campaigns.values()]
         if status:
             campaigns = [c for c in campaigns if c["status"] == status]
         return json.dumps(campaigns)
 
     @gl.public.view
     def get_campaign(self, campaign_id: str) -> str:
-        campaigns = json.loads(self.campaigns)
-        campaign = next((c for c in campaigns if c["id"] == campaign_id), None)
-        return json.dumps(campaign)
+        return json.dumps(json.loads(self.campaigns[campaign_id])) if campaign_id in self.campaigns else json.dumps(None)
 
     @gl.public.view
     def get_donations(self, campaign_id: str) -> str:
-        donations = json.loads(self.donations)
-        return json.dumps([d for d in donations if d["campaign_id"] == campaign_id])
+        return json.dumps([json.loads(d) for d in self.donations if json.loads(d)["campaign_id"] == campaign_id])
 
     @gl.public.view
     def get_vouches(self, campaign_id: str) -> str:
-        vouches = json.loads(self.vouches)
-        return json.dumps([v for v in vouches if v["campaign_id"] == campaign_id])
+        return json.dumps([json.loads(v) for v in self.vouches if json.loads(v)["campaign_id"] == campaign_id])
 
     @gl.public.view
     def get_dispute(self, campaign_id: str) -> str:
-        disputes = json.loads(self.disputes)
-        dispute = next((d for d in disputes if d["campaign_id"] == campaign_id), None)
-        return json.dumps(dispute)
+        disputes = [json.loads(d) for d in self.disputes if json.loads(d)["campaign_id"] == campaign_id]
+        return json.dumps(disputes[0] if disputes else None)
 
     @gl.public.view
     def get_blacklist(self) -> str:
-        return self.blacklist
+        return json.dumps(list(self.blacklist))
 
     # ─── INTERNAL METHODS ───
 
