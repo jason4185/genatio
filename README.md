@@ -3,7 +3,7 @@ Donate with proof. Powered by GenLayer.
 
 ## Network
 GenLayer Bradbury
-Contract Address: 0xe9818C1a2e6ED63D6c294f5E61a624984619891f
+Contract Address: 0x118f3B02B91f489f4C082Ec4b844AD9766a12393
 
 ## Stack
 - Smart Contract: Python (GenLayer Intelligent Contract)
