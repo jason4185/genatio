@@ -1,3 +1,4 @@
+# v0.2.16
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
 import json
@@ -45,7 +46,7 @@ class Genatio(gl.Contract):
             return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
 
         # English check
-        english_check = gl.exec_prompt(
+        english_check = gl.nondet.exec_prompt(
             f"Is this text written in English? Reply only YES or NO.\n\nTitle: {title}\n\nStory: {story}"
         )
         if "NO" in english_check.upper():
@@ -188,7 +189,7 @@ class Genatio(gl.Contract):
         stage = campaign["milestone_stage"]
 
         # AI verifies proof document and GitHub progress
-        verification = gl.exec_prompt(
+        verification = gl.nondet.exec_prompt(
             f"""You are verifying a milestone proof for an open source project grant.
 
 Project title: {campaign['title']}
@@ -324,7 +325,7 @@ Reply only APPROVED or REJECTED with one sentence reason."""
         if not campaign or not dispute:
             return json.dumps({"status": "error", "reason": "Not found"})
 
-        resolution = gl.exec_prompt(
+        resolution = gl.nondet.exec_prompt(
             f"""You are resolving a dispute for an open source grant campaign.
 
 Campaign title: {campaign['title']}
@@ -392,7 +393,7 @@ Is the dispute valid? Reply only VALID or INVALID with one sentence reason."""
     # ─── INTERNAL METHODS ───
 
     def _get_wallet_score(self, wallet_address: str) -> int:
-        result = gl.exec_prompt(
+        result = gl.nondet.exec_prompt(
             f"""Check wallet age and activity for address: {wallet_address}
 
 Check 1 — Bradbury testnet:
@@ -439,7 +440,7 @@ Otherwise reply with total score as a number only. Maximum 80."""
         community_url: str,
         funding_purpose: str
     ) -> int:
-        result = gl.exec_prompt(
+        result = gl.nondet.exec_prompt(
             f"""You are verifying an open source project grant application. Score each factor honestly.
 
 GITHUB REPO: {github_repo_url}
