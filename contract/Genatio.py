@@ -56,7 +56,8 @@ class Genatio(gl.Contract):
             first_line = result.strip().split('\n')[0].strip()
             digits = ''.join(filter(str.isdigit, first_line))
             score = u256(digits) if digits else u256(0)
-            score = score if u256(score) <= u256(100) else u256(100)
+            if score > u256(100):
+                score = u256(100)
         except:
             score = u256(0)
 
