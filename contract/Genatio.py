@@ -51,7 +51,7 @@ class Genatio(gl.Contract):
 
         # Wallet score check
         wallet_score = self._get_wallet_score(wallet_address)
-        if wallet_score == -1:
+        if wallet_score == "REJECTED":
             return json.dumps({"status": "rejected", "reason": "Wallet too new on both chains"})
 
         # Open source verification
@@ -68,9 +68,9 @@ class Genatio(gl.Contract):
             funding_purpose
         )
 
-        if score >= 85:
+        if u256(score) >= u256(85):
             status = "active"
-        elif score >= 50:
+        elif u256(score) >= u256(50):
             status = "vouching"
         else:
             status = "rejected"
@@ -83,10 +83,10 @@ class Genatio(gl.Contract):
                 "wallet": wallet_address,
                 "title": title,
                 "story": story,
-                "goal_usd": goal_usd,
-                "raised_usd": 0,
-                "escrowed_usd": 0,
-                "released_usd": 0,
+                "goal_usd": str(goal_usd),
+                "raised_usd": "0",
+                "escrowed_usd": "0",
+                "released_usd": "0",
                 "github_repo_url": github_repo_url,
                 "github_file_url": github_file_url,
                 "live_url": live_url,
@@ -96,11 +96,11 @@ class Genatio(gl.Contract):
                 "community_url": community_url,
                 "funding_purpose": funding_purpose,
                 "status": status,
-                "score": score,
-                "donor_count": 0,
+                "score": str(score),
+                "donor_count": "0",
                 "chains_used": [],
                 "milestones": [],
-                "milestone_stage": 0
+                "milestone_stage": "0"
             }
             self.campaigns[campaign_id] = json.dumps(campaign)
 
@@ -127,25 +127,25 @@ class Genatio(gl.Contract):
         if campaign["status"] != "active":
             return json.dumps({"status": "error", "reason": "Campaign not active"})
 
-        campaign["raised_usd"] += amount_usd
-        campaign["donor_count"] += 1
+        campaign["raised_usd"] = str(u256(campaign["raised_usd"]) + u256(amount_usd))
+        campaign["donor_count"] = str(u256(campaign["donor_count"]) + u256(1))
         if chain not in campaign["chains_used"]:
             campaign["chains_used"].append(chain)
 
         # Escrow logic
         # Under $1000 — release immediately
         # $1000 and above — hold in escrow, release by milestones
-        if campaign["goal_usd"] < 1000:
-            campaign["released_usd"] += amount_usd
+        if u256(campaign["goal_usd"]) < u256(1000):
+            campaign["released_usd"] = str(u256(campaign["released_usd"]) + u256(amount_usd))
         else:
-            campaign["escrowed_usd"] += amount_usd
+            campaign["escrowed_usd"] = str(u256(campaign["escrowed_usd"]) + u256(amount_usd))
 
         self.campaigns[campaign_id] = json.dumps(campaign)
         self.donations.append(json.dumps({
             "campaign_id": campaign_id,
             "wallet": wallet_address,
             "amount_token": amount_token,
-            "amount_usd": amount_usd,
+            "amount_usd": str(amount_usd),
             "chain": chain,
             "tx_hash": tx_hash
         }))
@@ -164,12 +164,12 @@ class Genatio(gl.Contract):
             return json.dumps({"status": "error", "reason": "Campaign not found"})
         if campaign["wallet"] != wallet_address:
             return json.dumps({"status": "error", "reason": "Not your campaign"})
-        if campaign["goal_usd"] < 1000:
+        if u256(campaign["goal_usd"]) < u256(1000):
             return json.dumps({"status": "error", "reason": "Milestones only apply to grants above $1000"})
-        if campaign["escrowed_usd"] == 0:
+        if u256(campaign["escrowed_usd"]) == u256(0):
             return json.dumps({"status": "error", "reason": "Nothing in escrow"})
 
-        stage = campaign["milestone_stage"]
+        stage = u256(campaign["milestone_stage"])
 
         # AI verifies proof document and GitHub progress
         verification = gl.nondet.exec_prompt(
@@ -178,7 +178,7 @@ class Genatio(gl.Contract):
 Project title: {campaign['title']}
 What they promised to build: {campaign['funding_purpose']}
 GitHub repo: {campaign['github_repo_url']}
-Milestone stage: {stage + 1} of 3
+Milestone stage: {u256(stage) + u256(1)} of 3
 
 Creator submitted this proof document: {proof_url}
 
@@ -199,29 +199,33 @@ Reply only APPROVED or REJECTED with one sentence reason."""
             })
 
         # Release percentages: stage 0 = 30%, stage 1 = 40%, stage 2 = 30%
-        percentages = [0.30, 0.40, 0.30]
-        release_amount = int(campaign["escrowed_usd"] * percentages[stage])
+        if stage == u256(0):
+            release_amount = u256(campaign["escrowed_usd"]) * u256(30) // u256(100)
+        elif stage == u256(1):
+            release_amount = u256(campaign["escrowed_usd"]) * u256(40) // u256(100)
+        else:
+            release_amount = u256(campaign["escrowed_usd"]) * u256(30) // u256(100)
 
-        campaign["released_usd"] += release_amount
-        campaign["escrowed_usd"] -= release_amount
-        campaign["milestone_stage"] += 1
+        campaign["released_usd"] = str(u256(campaign["released_usd"]) + release_amount)
+        campaign["escrowed_usd"] = str(u256(campaign["escrowed_usd"]) - release_amount)
+        campaign["milestone_stage"] = str(u256(campaign["milestone_stage"]) + u256(1))
         campaign["milestones"].append({
-            "stage": stage + 1,
+            "stage": str(u256(stage) + u256(1)),
             "proof_url": proof_url,
-            "amount_released": release_amount,
+            "amount_released": str(release_amount),
             "verification": verification
         })
 
-        if campaign["milestone_stage"] >= 3:
+        if u256(campaign["milestone_stage"]) >= u256(3):
             campaign["status"] = "completed"
 
         self.campaigns[campaign_id] = json.dumps(campaign)
 
         return json.dumps({
             "status": "success",
-            "amount_released": release_amount,
-            "stage": stage + 1,
-            "next_stage": stage + 2 if stage + 1 < 3 else None
+            "amount_released": str(release_amount),
+            "stage": str(u256(stage) + u256(1)),
+            "next_stage": str(u256(stage) + u256(2)) if u256(stage) + u256(1) < u256(3) else None
         })
 
     @gl.public.write
@@ -237,7 +241,7 @@ Reply only APPROVED or REJECTED with one sentence reason."""
             return json.dumps({"status": "error", "reason": "Campaign not in vouching state"})
 
         wallet_score = self._get_wallet_score(wallet_address)
-        if wallet_score < 20:
+        if u256(wallet_score) < u256(20):
             return json.dumps({"status": "error", "reason": "Wallet too new to vouch"})
 
         already = [v for v in self.vouches if json.loads(v)["campaign_id"] == campaign_id and json.loads(v)["wallet"] == wallet_address]
@@ -252,7 +256,7 @@ Reply only APPROVED or REJECTED with one sentence reason."""
 
         self.campaigns[campaign_id] = json.dumps(campaign)
 
-        return json.dumps({"status": "success", "vouch_count": len(campaign_vouches)})
+        return json.dumps({"status": "success", "vouch_count": str(len(campaign_vouches))})
 
     @gl.public.write
     def raise_dispute(
@@ -359,7 +363,7 @@ Is the dispute valid? Reply only VALID or INVALID with one sentence reason."""
 
     # ─── INTERNAL METHODS ───
 
-    def _get_wallet_score(self, wallet_address: str) -> int:
+    def _get_wallet_score(self, wallet_address: str) -> str:
         result = gl.nondet.exec_prompt(
             f"""Check wallet age and activity for address: {wallet_address}
 
@@ -388,17 +392,17 @@ Otherwise reply with total score as a number only. Maximum 80."""
         )
 
         if "REJECTED" in result.upper():
-            return -1
+            return "REJECTED"
         try:
             digits = ''.join(filter(str.isdigit, result))
-            return u256(digits) if digits else u256(10)
+            return digits if digits else "10"
         except:
-            return u256(10)
+            return "10"
 
     def _verify_open_source(
         self,
         wallet_address: str,
-        wallet_score: int,
+        wallet_score: str,
         github_repo_url: str,
         github_file_url: str,
         live_url: str,
@@ -407,7 +411,7 @@ Otherwise reply with total score as a number only. Maximum 80."""
         upload_url_3: str,
         community_url: str,
         funding_purpose: str
-    ) -> int:
+    ) -> str:
         result = gl.nondet.exec_prompt(
             f"""You are verifying an open source project grant application. Score each factor honestly.
 
@@ -474,10 +478,10 @@ Otherwise reply with total score as a number only. Maximum 135. Then normalize t
         )
 
         if "REJECTED" in result.upper():
-            return 0
+            return "0"
         try:
             digits = ''.join(filter(str.isdigit, result.split('\n')[-1]))
-            score = u256(digits) if digits else u256(0)
-            return min(score, 100)
+            score = digits if digits else "0"
+            return score if u256(score) <= u256(100) else "100"
         except:
-            return u256(0)
+            return "0"
