@@ -19,7 +19,7 @@ class Genatio(gl.Contract):
         wallet_address: str,
         title: str,
         story: str,
-        goal_usd: u256,
+        goal_usd: int,
         github_repo_url: str,
         github_file_url: str,
         live_url: str,
@@ -117,7 +117,7 @@ class Genatio(gl.Contract):
         wallet_address: str,
         campaign_id: str,
         amount_token: str,
-        amount_usd: u256,
+        amount_usd: int,
         chain: str,
         tx_hash: str
     ) -> str:
@@ -397,7 +397,7 @@ Otherwise reply with total score as a number only. Maximum 80."""
     def _verify_open_source(
         self,
         wallet_address: str,
-        wallet_score: u256,
+        wallet_score: int,
         github_repo_url: str,
         github_file_url: str,
         live_url: str,
