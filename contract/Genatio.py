@@ -20,6 +20,7 @@ class Genatio(gl.Contract):
         title: str,
         story: str,
         goal_usd: u256,
+        duration_days: u256,
         github_repo_url: str,
         github_file_url: str,
         live_url: str,
@@ -79,6 +80,7 @@ class Genatio(gl.Contract):
                 "title": title,
                 "story": story,
                 "goal_usd": str(goal_usd),
+                "duration_days": str(duration_days),
                 "raised_usd": "0",
                 "escrowed_usd": "0",
                 "released_usd": "0",
@@ -331,6 +333,23 @@ Otherwise reply with total score as a number only. Maximum 80."""
         self.campaigns[campaign_id] = json.dumps(campaign)
 
         return json.dumps({"status": "success", "dispute_id": dispute_id})
+
+    @gl.public.write
+    def end_campaign(
+        self,
+        wallet_address: str,
+        campaign_id: str
+    ) -> str:
+        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
+        if not campaign:
+            return json.dumps({"status": "error", "reason": "Campaign not found"})
+        if campaign["status"] == "ended":
+            return json.dumps({"status": "error", "reason": "Campaign already ended"})
+        if campaign["status"] not in ["active", "vouching"]:
+            return json.dumps({"status": "error", "reason": "Campaign cannot be ended"})
+        campaign["status"] = "ended"
+        self.campaigns[campaign_id] = json.dumps(campaign)
+        return json.dumps({"status": "success", "campaign_id": campaign_id})
 
     @gl.public.write
     def resolve_dispute(
