@@ -96,7 +96,7 @@ class Genatio(gl.Contract):
             "donor_count": "0",
             "chains_used": [],
             "milestones": [],
-            "rejection_reason": reason_map.get(result.strip(), "Score too low. Improve your evidence and resubmit.") if "REJECTED" in result else None
+            "rejection_reason": reason_map.get(result.strip(), "Score too low. Improve your evidence and resubmit.") if "REJECTED" in result else (f"Score too low — you scored {str(score)} out of 100. Minimum required is 50 for community vouching or 85 for direct approval. Improve your evidence and resubmit." if status == "rejected" else None)
         }
         self.campaigns[campaign_id] = json.dumps(campaign)
 
