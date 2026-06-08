@@ -316,7 +316,7 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
             "Both outputs are equivalent if both say VALID or both say INVALID"
         )
 
-        if "VALID" in resolution.upper():
+        if resolution.strip().upper().startswith("VALID"):
             campaign["status"] = "rejected"
             if campaign["wallet"] not in self.blacklist:
                 self.blacklist.append(campaign["wallet"])
