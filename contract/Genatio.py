@@ -508,8 +508,11 @@ Areas for Improvement:
 - Add an open source license to your repository to improve your score"""
             )
 
-        result = gl.eq_principle.prompt_comparative(
-            verify,
-            "Both outputs are equivalent if the score on the first line of each response falls in the same tier: below 50, between 50 and 84, or 85 and above"
-        )
+        try:
+            result = gl.eq_principle.prompt_comparative(
+                verify,
+                "Both outputs are equivalent if the score on the first line of each response falls in the same tier: below 50, between 50 and 84, or 85 and above"
+            )
+        except Exception as e:
+            return f"0\nVerification error: {str(e)[:200]}\n\nVerification Summary:\n- Verification encountered an error\n\nAreas for Improvement:\n- Please resubmit your campaign"
         return result
