@@ -24,68 +24,57 @@ class Genatio(gl.Contract):
         github_repo_url: str,
         funding_purpose: str
     ) -> str:
-        # Blacklist check
-        if any(w == wallet_address for w in self.blacklist):
-            return json.dumps({"status": "rejected", "reason": "Wallet is blacklisted"})
-
-        # Duplicate check
-        active = [json.loads(v) for k, v in self.campaigns.items() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] in ["active", "vouching"]]
-        if len(active) >= 2:
-            return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
-
-        if duration_days != u256(7) and duration_days != u256(14) and duration_days != u256(30):
-            return json.dumps({"status": "rejected", "reason": "Invalid duration. Choose 7, 14, or 30 days"})
-
-        result = self._verify_campaign(
-            wallet_address,
-            title,
-            story,
-            github_repo_url,
-            funding_purpose
-        )
+        try:
+            # Blacklist check
+            if any(w == wallet_address for w in self.blacklist):
+                return json.dumps({"status": "error", "step": "blacklist_check"})
+        except Exception as e:
+            return json.dumps({"status": "error", "step": "blacklist_check_failed", "error": str(e)[:100]})
 
         try:
-            first_line = result.strip().split('\n')[0].strip()
-            digits = ''.join(filter(str.isdigit, first_line))
-            score = u256(digits) if digits else u256(0)
-            if score > u256(100):
-                score = u256(100)
-        except:
-            score = u256(0)
+            # Duplicate check
+            active = [json.loads(v) for k, v in self.campaigns.items() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] in ["active", "vouching"]]
+            if len(active) >= 2:
+                return json.dumps({"status": "error", "step": "duplicate_check"})
+        except Exception as e:
+            return json.dumps({"status": "error", "step": "duplicate_check_failed", "error": str(e)[:100]})
 
-        if u256(score) >= u256(85):
-            status = "active"
-        elif u256(score) >= u256(50):
-            status = "vouching"
-        else:
-            status = "rejected"
+        try:
+            # Duration check
+            if duration_days != u256(7) and duration_days != u256(14) and duration_days != u256(30):
+                return json.dumps({"status": "error", "step": "duration_check"})
+        except Exception as e:
+            return json.dumps({"status": "error", "step": "duration_check_failed", "error": str(e)[:100]})
 
-        campaign_id = str(len([k for k, v in self.campaigns.items()]) + 1)
+        try:
+            # campaign_id generation
+            campaign_id = str(len([k for k, v in self.campaigns.items()]) + 1)
+        except Exception as e:
+            return json.dumps({"status": "error", "step": "campaign_id_failed", "error": str(e)[:100]})
 
-        campaign = {
-            "id": campaign_id,
-            "wallet": wallet_address,
-            "title": title,
-            "story": story,
-            "goal_usd": str(goal_usd),
-            "duration_days": str(duration_days),
-            "raised_usd": "0",
-            "github_repo_url": github_repo_url,
-            "funding_purpose": funding_purpose,
-            "status": status,
-            "score": str(score),
-            "donor_count": "0",
-            "chains_used": [],
-            "milestones": [],
-        }
-        self.campaigns[campaign_id] = json.dumps(campaign)
+        try:
+            # campaign dict
+            campaign = {
+                "id": campaign_id,
+                "wallet": wallet_address,
+                "title": title,
+                "story": story,
+                "goal_usd": str(goal_usd),
+                "duration_days": str(duration_days),
+                "raised_usd": "0",
+                "github_repo_url": github_repo_url,
+                "funding_purpose": funding_purpose,
+                "status": "pending",
+                "score": "0",
+                "donor_count": "0",
+                "chains_used": [],
+                "milestones": [],
+            }
+            self.campaigns[campaign_id] = json.dumps(campaign)
+        except Exception as e:
+            return json.dumps({"status": "error", "step": "campaign_store_failed", "error": str(e)[:100]})
 
-        return json.dumps({
-            "status": status,
-            "score": str(score),
-            "campaign_id": campaign_id,
-            "verification": result.strip()
-        })
+        return json.dumps({"status": "success", "step": "all_checks_passed", "campaign_id": campaign_id})
 
     @gl.public.write
     def donate(
