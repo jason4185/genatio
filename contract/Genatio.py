@@ -60,7 +60,7 @@ class Genatio(gl.Contract):
         else:
             status = "rejected"
 
-        campaign_id = str(len(self.campaigns) + 1)
+        campaign_id = str(len(list(self.campaigns.keys())) + 1)
 
         campaign = {
             "id": campaign_id,
@@ -203,7 +203,7 @@ Otherwise reply with total score as a number only. Maximum 40."""
         if not campaign:
             return json.dumps({"status": "error", "reason": "Campaign not found"})
 
-        dispute_id = str(len(self.disputes) + 1)
+        dispute_id = str(len(list(self.disputes)) + 1)
         self.disputes.append(json.dumps({
             "id": dispute_id,
             "campaign_id": campaign_id,
@@ -246,7 +246,7 @@ Otherwise reply with total score as a number only. Maximum 40."""
 
         dispute = None
         dispute_index = -1
-        for i in range(len(self.disputes)):
+        for i in range(len(list(self.disputes))):
             d = json.loads(self.disputes[i])
             if d["campaign_id"] == campaign_id and d["status"] == "open":
                 dispute = d
