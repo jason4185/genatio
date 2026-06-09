@@ -29,13 +29,23 @@ class Genatio(gl.Contract):
             campaign = {
                 "id": campaign_id,
                 "wallet": wallet_address,
+                "title": title,
+                "story": story,
+                "goal_usd": str(goal_usd),
+                "duration_days": str(duration_days),
+                "raised_usd": "0",
+                "github_repo_url": github_repo_url,
+                "funding_purpose": funding_purpose,
                 "status": "test",
-                "score": "0"
+                "score": "0",
+                "donor_count": "0",
+                "chains_used": [],
+                "milestones": [],
             }
             self.campaigns[campaign_id] = json.dumps(campaign)
-            return json.dumps({"step": "2_passed", "campaign_id": campaign_id})
+            return json.dumps({"step": "3_passed", "campaign_id": campaign_id})
         except Exception as e:
-            return json.dumps({"step": "2_failed", "error": str(e)[:200]})
+            return json.dumps({"step": "3_failed", "error": str(e)[:200]})
 
     @gl.public.write
     def donate(
