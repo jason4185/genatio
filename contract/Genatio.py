@@ -24,14 +24,18 @@ class Genatio(gl.Contract):
         github_repo_url: str,
         funding_purpose: str
     ) -> str:
-        # Step 1 - just try to iterate campaigns
         try:
-            count = 0
-            for k, v in self.campaigns.items():
-                count += 1
-            return json.dumps({"step": "1_passed", "count": count})
+            campaign_id = "1"
+            campaign = {
+                "id": campaign_id,
+                "wallet": wallet_address,
+                "status": "test",
+                "score": "0"
+            }
+            self.campaigns[campaign_id] = json.dumps(campaign)
+            return json.dumps({"step": "2_passed", "campaign_id": campaign_id})
         except Exception as e:
-            return json.dumps({"step": "1_failed", "error": str(e)[:200]})
+            return json.dumps({"step": "2_failed", "error": str(e)[:200]})
 
     @gl.public.write
     def donate(
