@@ -25,7 +25,7 @@ class Genatio(gl.Contract):
         funding_purpose: str
     ) -> str:
         # Blacklist check
-        if wallet_address in self.blacklist:
+        if any(w == wallet_address for w in self.blacklist):
             return json.dumps({"status": "rejected", "reason": "Wallet is blacklisted"})
 
         # Duplicate check
@@ -303,7 +303,7 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
 
         if resolution.strip().upper().startswith("VALID"):
             campaign["status"] = "rejected"
-            if campaign["wallet"] not in self.blacklist:
+            if not any(w == campaign["wallet"] for w in self.blacklist):
                 self.blacklist.append(campaign["wallet"])
         else:
             campaign["status"] = "active"
@@ -344,7 +344,7 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
 
     @gl.public.view
     def get_blacklist(self) -> str:
-        return json.dumps(list(self.blacklist))
+        return json.dumps([w for w in self.blacklist])
 
     # ─── INTERNAL METHODS ───
 
