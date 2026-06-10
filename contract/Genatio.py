@@ -126,8 +126,14 @@ class Genatio(gl.Contract):
     ) -> str:
         # eq_principle FIRST — closure only needs wallet_address param, no storage reads before
         def get_wallet_score():
-            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}", mode="text") or "No data available"
-            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available"
+            try:
+                bradbury_data = gl.nondet.web.get(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}").body.decode("utf-8")[:3000]
+            except:
+                bradbury_data = "No data available"
+            try:
+                eth_data = gl.nondet.web.get(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc").body.decode("utf-8")[:3000]
+            except:
+                eth_data = "No data available"
             return gl.nondet.exec_prompt(
                 f"""IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
 
@@ -259,8 +265,14 @@ Otherwise reply with total score as a number only. Maximum 40."""
             owner = parts[-2] if len(parts) >= 2 else ""
             repo = parts[-1] if len(parts) >= 1 else ""
             github_api_url = f"https://api.github.com/repos/{owner}/{repo}"
-            github_data = (gl.nondet.web.render(github_api_url, mode="text") or "No data available")[:3000]
-            commits_data = (gl.nondet.web.render(f"https://api.github.com/repos/{owner}/{repo}/commits", mode="text") or "No data available")[:3000]
+            try:
+                github_data = gl.nondet.web.get(github_api_url).body.decode("utf-8")[:3000]
+            except:
+                github_data = "No data available"
+            try:
+                commits_data = gl.nondet.web.get(f"https://api.github.com/repos/{owner}/{repo}/commits").body.decode("utf-8")[:3000]
+            except:
+                commits_data = "No data available"
             return gl.nondet.exec_prompt(
                 f"""IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
 
@@ -375,10 +387,22 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
         github_commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
 
         def verify():
-            bradbury_data = (gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}", mode="text") or "No data available")[:3000]
-            eth_data = (gl.nondet.web.render(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available")[:3000]
-            repo_data = (gl.nondet.web.render(github_api_url, mode="text") or "No data available")[:3000]
-            commits_data = (gl.nondet.web.render(github_commits_url, mode="text") or "No data available")[:3000]
+            try:
+                bradbury_data = gl.nondet.web.get(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}").body.decode("utf-8")[:3000]
+            except:
+                bradbury_data = "No data available"
+            try:
+                eth_data = gl.nondet.web.get(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc").body.decode("utf-8")[:3000]
+            except:
+                eth_data = "No data available"
+            try:
+                repo_data = gl.nondet.web.get(github_api_url).body.decode("utf-8")[:3000]
+            except:
+                repo_data = "No data available"
+            try:
+                commits_data = gl.nondet.web.get(github_commits_url).body.decode("utf-8")[:3000]
+            except:
+                commits_data = "No data available"
 
             return gl.nondet.exec_prompt(
                 f"""You are verifying an open source project grant application on Genatio.
@@ -531,14 +555,15 @@ Areas for Improvement:
                 return False
 
             try:
-                raw = gl.nondet.web.render(github_api_url, mode="text") or ""
+                repo = json.loads(gl.nondet.web.get(github_api_url).body.decode("utf-8"))
             except:
-                raw = ""
+                repo = {}
 
-            repo_not_found = '"message"' in raw and '"Not Found"' in raw
-            repo_is_private = '"private":true' in raw or '"private": true' in raw
-            has_license = '"license"' in raw and '"key"' in raw
-            recent_commits = any(f'"pushed_at":"{y}' in raw or f'"pushed_at": "{y}' in raw for y in ["2026", "2025"])
+            repo_not_found  = repo.get("message") == "Not Found" or not repo
+            repo_is_private = repo.get("private") is True
+            has_license     = bool(repo.get("license"))
+            pushed_at       = repo.get("pushed_at", "")
+            recent_commits  = pushed_at[:4] in ("2026", "2025")
 
             if (repo_not_found or repo_is_private) and leader_score >= 85:
                 return False
