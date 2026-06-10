@@ -43,6 +43,7 @@ class Genatio(gl.Contract):
             # Duration check
             if duration_days != u256(7) and duration_days != u256(14) and duration_days != u256(30):
                 return json.dumps({"status": "rejected", "reason": "Invalid duration"})
+            return json.dumps({"step": "duration_passed", "duration_days": str(duration_days)})
         except Exception as e:
             return json.dumps({"step": "4c_failed", "error": str(e)[:200]})
 
