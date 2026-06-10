@@ -22,8 +22,21 @@ class Genatio(gl.Contract):
         goal_usd: u256,
         duration_days: u256,
         github_repo_url: str,
+        live_url: str,
+        upload_url_1: str,
+        upload_url_2: str,
+        upload_url_3: str,
         funding_purpose: str
     ) -> str:
+        # Blacklist check
+        if wallet_address in self.blacklist:
+            return json.dumps({"status": "rejected", "reason": "Wallet is blacklisted"})
+
+        # Duplicate check
+        active = [json.loads(v) for v in self.campaigns.values() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] in ["active", "vouching"]]
+        if len(active) >= 2:
+            return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
+
         if duration_days != u256(7) and duration_days != u256(14) and duration_days != u256(30):
             return json.dumps({"status": "rejected", "reason": "Invalid duration. Choose 7, 14, or 30 days"})
 
@@ -32,16 +45,12 @@ class Genatio(gl.Contract):
             title,
             story,
             github_repo_url,
+            live_url,
+            upload_url_1,
+            upload_url_2,
+            upload_url_3,
             funding_purpose
         )
-
-        # ALL storage reads happen AFTER the non-deterministic call
-        if wallet_address in self.blacklist:
-            return json.dumps({"status": "rejected", "reason": "Wallet is blacklisted"})
-
-        active = [json.loads(v) for k, v in self.campaigns.items() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] in ["active", "vouching"]]
-        if len(active) >= 2:
-            return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
 
         try:
             first_line = result.strip().split('\n')[0].strip()
@@ -57,9 +66,9 @@ class Genatio(gl.Contract):
         elif u256(score) >= u256(50):
             status = "vouching"
         else:
-            return json.dumps({"status": "rejected", "score": str(score)})
+            status = "rejected"
 
-        campaign_id = str(len([k for k, v in self.campaigns.items()]) + 1)
+        campaign_id = str(len(self.campaigns) + 1)
 
         campaign = {
             "id": campaign_id,
@@ -70,6 +79,10 @@ class Genatio(gl.Contract):
             "duration_days": str(duration_days),
             "raised_usd": "0",
             "github_repo_url": github_repo_url,
+            "live_url": live_url,
+            "upload_url_1": upload_url_1,
+            "upload_url_2": upload_url_2,
+            "upload_url_3": upload_url_3,
             "funding_purpose": funding_purpose,
             "status": status,
             "score": str(score),
@@ -79,11 +92,7 @@ class Genatio(gl.Contract):
         }
         self.campaigns[campaign_id] = json.dumps(campaign)
 
-        return json.dumps({
-            "status": status,
-            "score": str(score),
-            "campaign_id": campaign_id
-        })
+        return json.dumps({"status": status, "score": str(score), "campaign_id": campaign_id})
 
     @gl.public.write
     def donate(
@@ -124,7 +133,12 @@ class Genatio(gl.Contract):
         wallet_address: str,
         campaign_id: str
     ) -> str:
-        # eq_principle FIRST — closure only needs wallet_address param, no storage reads before
+        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
+        if not campaign:
+            return json.dumps({"status": "error", "reason": "Campaign not found"})
+        if campaign["status"] != "vouching":
+            return json.dumps({"status": "error", "reason": "Campaign not in vouching state"})
+
         def get_wallet_score():
             bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}", mode="text") or "No data available"
             eth_data = gl.nondet.web.render(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available"
@@ -170,13 +184,6 @@ Otherwise reply with total score as a number only. Maximum 40."""
             wallet_score_val = "0"
         if u256(wallet_score_val) < u256(20):
             return json.dumps({"status": "error", "reason": "Wallet too new to vouch"})
-
-        # ALL storage reads AFTER eq_principle
-        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
-        if not campaign:
-            return json.dumps({"status": "error", "reason": "Campaign not found"})
-        if campaign["status"] != "vouching":
-            return json.dumps({"status": "error", "reason": "Campaign not in vouching state"})
 
         already = [v for v in self.vouches if json.loads(v)["campaign_id"] == campaign_id and json.loads(v)["wallet"] == wallet_address]
         if already:
@@ -242,59 +249,8 @@ Otherwise reply with total score as a number only. Maximum 40."""
         wallet_address: str,
         campaign_id: str
     ) -> str:
-        # eq_principle FIRST — closure reads storage internally, no outer-scope storage reads before
-        def resolve():
-            c = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
-            if not c:
-                raise gl.vm.UserError("Campaign not found")
-            d = None
-            for i in range(len(self.disputes)):
-                dd = json.loads(self.disputes[i])
-                if dd["campaign_id"] == campaign_id and dd["status"] == "open":
-                    d = dd
-                    break
-            if not d:
-                raise gl.vm.UserError("No open dispute found")
-            parts = c['github_repo_url'].rstrip('/').split('/')
-            owner = parts[-2] if len(parts) >= 2 else ""
-            repo = parts[-1] if len(parts) >= 1 else ""
-            github_api_url = f"https://api.github.com/repos/{owner}/{repo}"
-            github_data = (gl.nondet.web.render(github_api_url, mode="text") or "No data available")[:3000]
-            commits_data = (gl.nondet.web.render(f"https://api.github.com/repos/{owner}/{repo}/commits", mode="text") or "No data available")[:3000]
-            return gl.nondet.exec_prompt(
-                f"""IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
-
-You are resolving a dispute for an open source grant campaign on Genatio.
-
-CAMPAIGN DETAILS:
-Title: {c['title']}
-Story: {c['story']}
-Funding purpose: {c['funding_purpose']}
-GitHub repo: {c['github_repo_url']}
-
-GITHUB DATA:
-Repo info: {github_data}
-Recent commits: {commits_data}
-
-DISPUTE:
-Raised by: {d['raised_by']}
-Dispute story: {d['dispute_story']}
-
-Based on all the evidence above:
-1. Does the GitHub repo match what the campaign claims?
-2. Does the disputer's story raise valid concerns that are supported by the GitHub data?
-3. Is there a clear contradiction between the campaign story and what the repo actually shows?
-
-If the dispute is valid and the campaign appears fraudulent reply exactly: VALID - one sentence reason
-If the campaign appears legitimate and dispute is unfounded reply exactly: INVALID - one sentence reason"""
-            )
-        resolution = gl.eq_principle.prompt_comparative(
-            resolve,
-            "Both outputs are equivalent if both say VALID or both say INVALID"
-        )
-
-        # ALL storage reads and writes AFTER eq_principle
         campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
+
         dispute = None
         dispute_index = -1
         for i in range(len(self.disputes)):
@@ -312,6 +268,45 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
 
         if dispute["raised_by"] == wallet_address:
             return json.dumps({"status": "error", "reason": "Cannot resolve your own dispute"})
+
+        def resolve():
+            parts = campaign['github_repo_url'].rstrip('/').split('/')
+            owner = parts[-2] if len(parts) >= 2 else ""
+            repo = parts[-1] if len(parts) >= 1 else ""
+            github_api_url = f"https://api.github.com/repos/{owner}/{repo}"
+            github_data = gl.nondet.web.render(github_api_url, mode="text") or "No data available"
+            commits_data = gl.nondet.web.render(f"https://api.github.com/repos/{owner}/{repo}/commits", mode="text") or "No data available"
+            return gl.nondet.exec_prompt(
+                f"""IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
+
+You are resolving a dispute for an open source grant campaign on Genatio.
+
+CAMPAIGN DETAILS:
+Title: {campaign['title']}
+Story: {campaign['story']}
+Funding purpose: {campaign['funding_purpose']}
+GitHub repo: {campaign['github_repo_url']}
+
+GITHUB DATA:
+Repo info: {github_data}
+Recent commits: {commits_data}
+
+DISPUTE:
+Raised by: {dispute['raised_by']}
+Dispute story: {dispute['dispute_story']}
+
+Based on all the evidence above:
+1. Does the GitHub repo match what the campaign claims?
+2. Does the disputer's story raise valid concerns that are supported by the GitHub data?
+3. Is there a clear contradiction between the campaign story and what the repo actually shows?
+
+If the dispute is valid and the campaign appears fraudulent reply exactly: VALID - one sentence reason
+If the campaign appears legitimate and dispute is unfounded reply exactly: INVALID - one sentence reason"""
+            )
+        resolution = gl.eq_principle.prompt_comparative(
+            resolve,
+            "Both outputs are equivalent if both say VALID or both say INVALID"
+        )
 
         if resolution.strip().upper().startswith("VALID"):
             campaign["status"] = "rejected"
@@ -332,7 +327,7 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
 
     @gl.public.view
     def get_campaigns(self, status: str) -> str:
-        campaigns = [json.loads(v) for k, v in self.campaigns.items()]
+        campaigns = [json.loads(v) for v in self.campaigns.values()]
         if status:
             campaigns = [c for c in campaigns if c["status"] == status]
         return json.dumps(campaigns)
@@ -366,6 +361,10 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
         title: str,
         story: str,
         github_repo_url: str,
+        live_url: str,
+        upload_url_1: str,
+        upload_url_2: str,
+        upload_url_3: str,
         funding_purpose: str
     ) -> str:
         parts = github_repo_url.rstrip('/').split('/')
@@ -375,10 +374,11 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
         github_commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
 
         def verify():
-            bradbury_data = (gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}", mode="text") or "No data available")[:3000]
-            eth_data = (gl.nondet.web.render(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available")[:3000]
-            repo_data = (gl.nondet.web.render(github_api_url, mode="text") or "No data available")[:3000]
-            commits_data = (gl.nondet.web.render(github_commits_url, mode="text") or "No data available")[:3000]
+            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}", mode="text") or "No data available"
+            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available"
+            repo_data = gl.nondet.web.render(github_api_url, mode="text") or "No data available"
+            commits_data = gl.nondet.web.render(github_commits_url, mode="text") or "No data available"
+            live_data = (gl.nondet.web.render(live_url, mode="text") or "No data available") if live_url else "No data available"
 
             return gl.nondet.exec_prompt(
                 f"""You are verifying an open source project grant application on Genatio.
@@ -389,7 +389,14 @@ SCORING RULES:
 - For wallet trust use the best age score from either Bradbury OR Ethereum — not both required
 - If only one chain has data use that chain's score
 - If neither chain has data score wallet trust 0pts and continue — do not reject for missing data alone
+- Missing screenshots score 0pts — do not reject
 - Every factor is independent — one missing factor never blocks the others
+
+CRITICAL: Respond with TEXT ONLY. Do NOT call any tools.
+- Do NOT use Read, Bash, Grep, Glob, Edit, Write, or ANY other tool.
+- You already have all the context you need in the conversation above.
+- Tool calls will be REJECTED and will waste your only turn — you will fail the task.
+- Your entire response must be plain text: an <analysis> block followed by a <summary> block.
 
 IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
 Be thorough, honest, and strict. Follow every step exactly and in order.
@@ -466,29 +473,44 @@ Over 90 days old = 10pts
 7 to 30 days = 3pts
 Under 7 days = 0pts
 
-Factor 6 — Funding purpose specific:
+Factor 6 — Live URL accessible:
+Live URL: {live_url}
+Fetched content: {live_data}
+Loads with real content = 15pts
+Loads but sparse = 7pts
+Does not load or empty = 0pts
+
+Factor 7 — Funding purpose specific:
 Read this funding purpose: {funding_purpose}
 Very specific deliverables = 20pts
 Somewhat specific = 10pts
 Vague = 0pts
 
-Factor 7 — Story quality:
+Factor 8 — Story quality:
 Read this story: {story}
 Detailed and convincing = 15pts
 Basic = 7pts
 Too short or vague = 0pts
 
-Factor 8 — Community engagement (from GitHub repo data):
+Factor 9 — Screenshots provided:
+Screenshot 1: {upload_url_1}
+Screenshot 2: {upload_url_2}
+Screenshot 3: {upload_url_3}
+All 3 provided and load = 15pts
+1 or 2 provided = 7pts
+None provided = 0pts
+
+Factor 10 — Community engagement (from GitHub repo data):
 Stars above 10 and forks above 3 = 10pts
 Stars above 3 or forks above 1 = 5pts
 Stars 0 and forks 0 = 0pts
 
-Factor 9 — Wallet trust score:
+Factor 11 — Wallet trust score:
 Use WALLET_SCORE from Step 2.
 Normalize to max 10pts: round(WALLET_SCORE / 4).
 
-Add all factor scores. Maximum = 140pts.
-Normalize to 100: round((total / 140) * 100).
+Add all factor scores. Maximum = 170pts.
+Normalize to 100: round((total / 170) * 100).
 
 === FINAL REPLY ===
 Reply in this exact format and nothing else:
@@ -508,13 +530,13 @@ Example:
 82
 Verification Summary:
 - Repository is active with recent commits and a well-documented README
-- GitHub repository has active commits and strong community engagement
+- Live application is accessible and loads real content
 - Project has demonstrated community interest with stars and forks
 
 Areas for Improvement:
 - No open source license found — add a LICENSE file to your repository
 - Wallet activity on both chains is limited — a more established wallet improves trust score
-- Add an open source license to your repository to improve your score"""
+- Screenshots were not provided — upload 3 screenshots to improve your score"""
             )
 
         result = gl.eq_principle.prompt_comparative(
