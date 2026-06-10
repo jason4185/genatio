@@ -365,146 +365,41 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
         github_commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
 
         def verify():
-            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}", mode="text") or "No data available"
-            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available"
-            repo_data = gl.nondet.web.render(github_api_url, mode="text") or "No data available"
-            commits_data = gl.nondet.web.render(github_commits_url, mode="text") or "No data available"
+            bradbury_raw = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}", mode="text") or ""
+            eth_raw = gl.nondet.web.render(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or ""
+            repo_raw = gl.nondet.web.render(github_api_url, mode="text") or ""
+            commits_raw = gl.nondet.web.render(github_commits_url, mode="text") or ""
+
+            bradbury_data = bradbury_raw[:500] if bradbury_raw else "No data available"
+            eth_data = eth_raw[:500] if eth_raw else "No data available"
+            repo_data = repo_raw[:800] if repo_raw else "No data available"
+            commits_data = commits_raw[:300] if commits_raw else "No data available"
 
             return gl.nondet.exec_prompt(
-                f"""You are verifying an open source project grant application on Genatio.
+                f"""You are verifying an open source project grant on Genatio. Score based ONLY on the data below.
 
-SCORING RULES:
-- If any fetched data shows "No data available" score that factor 0pts and continue
-- Never guess or infer data that is not explicitly present in the fetched content
-- For wallet trust use the best age score from either Bradbury OR Ethereum — not both required
-- If only one chain has data use that chain's score
-- If neither chain has data score wallet trust 0pts and continue — do not reject for missing data alone
-- Every factor is independent — one missing factor never blocks the others
+WALLET: {wallet_address}
+BRADBURY DATA (truncated): {bradbury_data}
+ETHEREUM DATA (truncated): {eth_data}
+GITHUB REPO (truncated): {repo_data}
+RECENT COMMITS (truncated): {commits_data}
+TITLE: {title}
+STORY (first 200 chars): {story[:200]}
+FUNDING PURPOSE (first 200 chars): {funding_purpose[:200]}
 
-IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
-Be thorough, honest, and strict. Follow every step exactly and in order.
+Score these factors (reply with ONLY a number 0-100):
+- Wallet trust (age + activity on either chain): 0-10pts
+- Repo exists and public: 0-20pts
+- Recent commits (last 30 days = 20pts, 90 days = 14pts, older = 0pts): 0-20pts
+- README quality (from description field): 0-15pts
+- License present: 0-10pts
+- Repo age (90+ days = 10pts, 30-90 = 7pts, 7-30 = 3pts, under 7 = 0pts): 0-10pts
+- Funding purpose specificity: 0-20pts
+- Story quality: 0-15pts
+- Community (stars/forks): 0-10pts
 
-=== STEP 1: LANGUAGE CHECK ===
-Read the title and story below.
-Language score: English = 10pts, Not English = 0pts
-Title: {title}
-Story: {story}
-
-=== STEP 2: WALLET TRUST CHECK ===
-Wallet address: {wallet_address}
-
-Bradbury testnet explorer data:
-{bradbury_data}
-
-Ethereum Mainnet transactions:
-{eth_data}
-
-Score wallet age (use best age from either chain):
-2 to 3 months = 20pts
-1 to 2 months = 15pts
-2 weeks to 1 month = 10pts
-1 to 2 weeks = 5pts
-Under 1 week = 0pts
-
-Score Ethereum transaction count:
-Over 100 = 20pts
-50 to 100 = 15pts
-20 to 50 = 10pts
-10 to 20 = 5pts
-Under 10 = 2pts
-Zero = 0pts
-
-Wallet scoring rules:
-- If only one chain has data use that chain's score
-- If one chain is under 1 week but the other is older use the older chain's score
-- If BOTH chains show wallet age under 1 week score wallet trust 0pts and continue — do not reject
-- The wallet being checked is the connected wallet that signed this transaction: {wallet_address}
-Maximum wallet trust score = 40pts. Note it as WALLET_SCORE.
-
-=== STEP 3: GITHUB VERIFICATION ===
-
-GitHub repo data:
-{repo_data}
-
-GitHub commit history:
-{commits_data}
-
-Factor 1 — Repo exists and is public:
-Check if repo data loaded and private is false.
-Exists and public = 20pts
-Not found or private = 0pts
-If not found or private score 0pts and continue scoring other factors.
-
-Factor 2 — Commit activity (check pushed_at and commits list):
-Last 30 days = 20pts
-Last 90 days = 14pts
-Last 180 days = 6pts
-Older = 0pts
-
-Factor 3 — README quality (check description field from repo data):
-Detailed description = 15pts
-Basic description = 7pts
-Empty = 0pts
-
-Factor 4 — License present (check license field from repo data):
-License exists = 10pts
-No license = 0pts
-
-Factor 5 — Repo age (check created_at from repo data):
-Over 90 days old = 10pts
-30 to 90 days = 7pts
-7 to 30 days = 3pts
-Under 7 days = 0pts
-
-Factor 6 — Funding purpose specific:
-Read this funding purpose: {funding_purpose}
-Very specific deliverables = 20pts
-Somewhat specific = 10pts
-Vague = 0pts
-
-Factor 7 — Story quality:
-Read this story: {story}
-Detailed and convincing = 15pts
-Basic = 7pts
-Too short or vague = 0pts
-
-Factor 8 — Community engagement (from GitHub repo data):
-Stars above 10 and forks above 3 = 10pts
-Stars above 3 or forks above 1 = 5pts
-Stars 0 and forks 0 = 0pts
-
-Factor 9 — Wallet trust score:
-Use WALLET_SCORE from Step 2.
-Normalize to max 10pts: round(WALLET_SCORE / 4).
-
-Add all factor scores. Maximum = 140pts.
-Normalize to 100: round((total / 140) * 100).
-
-=== FINAL REPLY ===
-Reply in this exact format and nothing else:
-[score]
-Verification Summary:
-- [strength 1]
-- [strength 2]
-- [strength 3]
-
-Areas for Improvement:
-- [weakness 1]
-- [weakness 2]
-- [weakness 3]
-
-Where [score] is a single number between 0 and 100 on the first line.
-Example:
-82
-Verification Summary:
-- Repository is active with recent commits and a well-documented README
-- GitHub repository has active commits and strong community engagement
-- Project has demonstrated community interest with stars and forks
-
-Areas for Improvement:
-- No open source license found — add a LICENSE file to your repository
-- Wallet activity on both chains is limited — a more established wallet improves trust score
-- Add an open source license to your repository to improve your score"""
+Total maximum = 130pts. Normalize: round((total/130)*100).
+Reply with ONLY a single number between 0 and 100. Nothing else."""
             )
 
         try:
