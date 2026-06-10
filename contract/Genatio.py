@@ -408,12 +408,14 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
                 f"""You are verifying an open source project grant application on Genatio.
 
 SCORING RULES:
-- If any fetched data shows "No data available" score that factor 0pts and continue
+- If any fetched data shows "No data available" score that factor 0pts and continue — NEVER override the final score
+- Missing data for any factor means 0pts for THAT FACTOR ONLY — not 0 for the entire campaign
 - Never guess or infer data that is not explicitly present in the fetched content
 - For wallet trust use the best age score from either Bradbury OR Ethereum — not both required
 - If only one chain has data use that chain's score
-- If neither chain has data score wallet trust 0pts and continue — do not reject for missing data alone
-- Every factor is independent — one missing factor never blocks the others
+- If neither chain has data score wallet trust 0pts for that factor only and continue
+- Every factor is independent — one missing factor NEVER affects other factors or the final score
+- The final normalized score is ALWAYS round((total/140)*100) — never override this with 0
 
 IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
 Be thorough, honest, and strict. Follow every step exactly and in order.
