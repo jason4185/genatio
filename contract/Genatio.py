@@ -1,4 +1,4 @@
-# v0.2.19
+# v0.2.20
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
 import json
@@ -220,10 +220,13 @@ Based on all the evidence above:
 If the flag is valid and the project appears fraudulent reply exactly: VALID - one sentence reason
 If the project appears legitimate and the flag is unfounded reply exactly: INVALID - one sentence reason"""
             )
-        resolution = gl.eq_principle.prompt_comparative(
-            resolve,
-            "Both outputs are equivalent if both say VALID or both say INVALID"
-        )
+        def flag_validator_fn(leaders_res):
+            if not isinstance(leaders_res, gl.vm.Return):
+                return False
+            result = leaders_res.calldata.strip().upper()
+            return result.startswith("VALID") or result.startswith("INVALID")
+
+        resolution = gl.vm.run_nondet_unsafe(resolve, flag_validator_fn)
 
         # ALL storage reads and writes AFTER eq_principle
         project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
