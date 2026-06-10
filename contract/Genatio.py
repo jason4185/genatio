@@ -1,4 +1,4 @@
-# v0.2.18
+# v0.2.19
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
 import json
@@ -13,7 +13,7 @@ class Genatio(gl.Contract):
         pass
 
     @gl.public.write
-    def create_campaign(
+    def submit_project(
         self,
         wallet_address: str,
         title: str,
@@ -42,7 +42,7 @@ class Genatio(gl.Contract):
 
         active = [json.loads(v) for k, v in self.campaigns.items() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] == "active"]
         if len(active) >= 2:
-            return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
+            return json.dumps({"status": "rejected", "reason": "You already have 2 active projects"})
 
         try:
             first_line = result.strip().split('\n')[0].strip()
@@ -58,10 +58,10 @@ class Genatio(gl.Contract):
         else:
             return json.dumps({"status": "rejected", "score": str(score)})
 
-        campaign_id = str(len([k for k, v in self.campaigns.items()]) + 1)
+        project_id = str(len([k for k, v in self.campaigns.items()]) + 1)
 
-        campaign = {
-            "id": campaign_id,
+        project = {
+            "id": project_id,
             "wallet": wallet_address,
             "title": title,
             "story": story,
@@ -77,38 +77,38 @@ class Genatio(gl.Contract):
             "chains_used": [],
             "milestones": [],
         }
-        self.campaigns[campaign_id] = json.dumps(campaign)
+        self.campaigns[project_id] = json.dumps(project)
 
         return json.dumps({
             "status": status,
             "score": str(score),
-            "campaign_id": campaign_id
+            "project_id": project_id
         })
 
     @gl.public.write
-    def donate(
+    def fund_project(
         self,
         wallet_address: str,
-        campaign_id: str,
+        project_id: str,
         amount_token: str,
         amount_usd: u256,
         chain: str,
         tx_hash: str
     ) -> str:
-        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
-        if not campaign:
-            return json.dumps({"status": "error", "reason": "Campaign not found"})
-        if campaign["status"] != "active":
-            return json.dumps({"status": "error", "reason": "Campaign not active"})
+        project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
+        if not project:
+            return json.dumps({"status": "error", "reason": "Project not found"})
+        if project["status"] != "active":
+            return json.dumps({"status": "error", "reason": "Project not accepting funds"})
 
-        campaign["raised_usd"] = str(u256(campaign["raised_usd"]) + u256(amount_usd))
-        campaign["donor_count"] = str(u256(campaign["donor_count"]) + u256(1))
-        if chain not in campaign["chains_used"]:
-            campaign["chains_used"].append(chain)
+        project["raised_usd"] = str(u256(project["raised_usd"]) + u256(amount_usd))
+        project["donor_count"] = str(u256(project["donor_count"]) + u256(1))
+        if chain not in project["chains_used"]:
+            project["chains_used"].append(chain)
 
-        self.campaigns[campaign_id] = json.dumps(campaign)
+        self.campaigns[project_id] = json.dumps(project)
         self.donations.append(json.dumps({
-            "campaign_id": campaign_id,
+            "project_id": project_id,
             "wallet": wallet_address,
             "amount_token": amount_token,
             "amount_usd": str(amount_usd),
@@ -119,68 +119,68 @@ class Genatio(gl.Contract):
         return json.dumps({"status": "success"})
 
     @gl.public.write
-    def raise_dispute(
+    def flag_project(
         self,
         wallet_address: str,
-        campaign_id: str,
-        dispute_story: str
+        project_id: str,
+        flag_reason: str
     ) -> str:
-        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
-        if not campaign:
-            return json.dumps({"status": "error", "reason": "Campaign not found"})
+        project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
+        if not project:
+            return json.dumps({"status": "error", "reason": "Project not found"})
 
-        dispute_id = str(len(self.disputes) + 1)
+        flag_id = str(len(self.disputes) + 1)
         self.disputes.append(json.dumps({
-            "id": dispute_id,
-            "campaign_id": campaign_id,
+            "id": flag_id,
+            "project_id": project_id,
             "raised_by": wallet_address,
-            "dispute_story": dispute_story,
+            "flag_reason": flag_reason,
             "status": "open"
         }))
 
-        campaign["status"] = "disputed"
-        self.campaigns[campaign_id] = json.dumps(campaign)
+        project["status"] = "disputed"
+        self.campaigns[project_id] = json.dumps(project)
 
-        return json.dumps({"status": "success", "dispute_id": dispute_id})
+        return json.dumps({"status": "success", "flag_id": flag_id})
 
     @gl.public.write
-    def end_campaign(
+    def close_project(
         self,
         wallet_address: str,
-        campaign_id: str
+        project_id: str
     ) -> str:
-        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
-        if not campaign:
-            return json.dumps({"status": "error", "reason": "Campaign not found"})
-        if campaign["wallet"] != wallet_address:
-            return json.dumps({"status": "error", "reason": "Not your campaign"})
-        if campaign["status"] == "ended":
-            return json.dumps({"status": "error", "reason": "Campaign already ended"})
-        if campaign["status"] != "active":
-            return json.dumps({"status": "error", "reason": "Campaign cannot be ended"})
-        campaign["status"] = "ended"
-        self.campaigns[campaign_id] = json.dumps(campaign)
-        return json.dumps({"status": "success", "campaign_id": campaign_id})
+        project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
+        if not project:
+            return json.dumps({"status": "error", "reason": "Project not found"})
+        if project["wallet"] != wallet_address:
+            return json.dumps({"status": "error", "reason": "Not your project"})
+        if project["status"] == "ended":
+            return json.dumps({"status": "error", "reason": "Project already closed"})
+        if project["status"] != "active":
+            return json.dumps({"status": "error", "reason": "Project cannot be closed"})
+        project["status"] = "ended"
+        self.campaigns[project_id] = json.dumps(project)
+        return json.dumps({"status": "success", "project_id": project_id})
 
     @gl.public.write
-    def resolve_dispute(
+    def review_flag(
         self,
         wallet_address: str,
-        campaign_id: str
+        project_id: str
     ) -> str:
         # eq_principle FIRST — closure reads storage internally, no outer-scope storage reads before
         def resolve():
-            c = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
+            c = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
             if not c:
-                raise gl.vm.UserError("Campaign not found")
-            d = None
+                raise gl.vm.UserError("Project not found")
+            f = None
             for i in range(len(self.disputes)):
                 dd = json.loads(self.disputes[i])
-                if dd["campaign_id"] == campaign_id and dd["status"] == "open":
-                    d = dd
+                if dd["project_id"] == project_id and dd["status"] == "open":
+                    f = dd
                     break
-            if not d:
-                raise gl.vm.UserError("No open dispute found")
+            if not f:
+                raise gl.vm.UserError("No open flag found")
             parts = c['github_repo_url'].rstrip('/').split('/')
             owner = parts[-2] if len(parts) >= 2 else ""
             repo = parts[-1] if len(parts) >= 1 else ""
@@ -196,9 +196,9 @@ class Genatio(gl.Contract):
             return gl.nondet.exec_prompt(
                 f"""IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
 
-You are resolving a dispute for an open source grant campaign on Genatio.
+You are reviewing a flag raised against an open source grant project on Genatio.
 
-CAMPAIGN DETAILS:
+PROJECT DETAILS:
 Title: {c['title']}
 Story: {c['story']}
 Funding purpose: {c['funding_purpose']}
@@ -208,17 +208,17 @@ GITHUB DATA:
 Repo info: {github_data}
 Recent commits: {commits_data}
 
-DISPUTE:
-Raised by: {d['raised_by']}
-Dispute story: {d['dispute_story']}
+FLAG:
+Raised by: {f['raised_by']}
+Flag reason: {f['flag_reason']}
 
 Based on all the evidence above:
-1. Does the GitHub repo match what the campaign claims?
-2. Does the disputer's story raise valid concerns that are supported by the GitHub data?
-3. Is there a clear contradiction between the campaign story and what the repo actually shows?
+1. Does the GitHub repo match what the project claims?
+2. Does the flag reason raise valid concerns that are supported by the GitHub data?
+3. Is there a clear contradiction between the project story and what the repo actually shows?
 
-If the dispute is valid and the campaign appears fraudulent reply exactly: VALID - one sentence reason
-If the campaign appears legitimate and dispute is unfounded reply exactly: INVALID - one sentence reason"""
+If the flag is valid and the project appears fraudulent reply exactly: VALID - one sentence reason
+If the project appears legitimate and the flag is unfounded reply exactly: INVALID - one sentence reason"""
             )
         resolution = gl.eq_principle.prompt_comparative(
             resolve,
@@ -226,61 +226,61 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
         )
 
         # ALL storage reads and writes AFTER eq_principle
-        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
-        dispute = None
-        dispute_index = -1
+        project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
+        flag = None
+        flag_index = -1
         for i in range(len(self.disputes)):
             d = json.loads(self.disputes[i])
-            if d["campaign_id"] == campaign_id and d["status"] == "open":
-                dispute = d
-                dispute_index = i
+            if d["project_id"] == project_id and d["status"] == "open":
+                flag = d
+                flag_index = i
                 break
 
-        if not campaign or not dispute:
+        if not project or not flag:
             return json.dumps({"status": "error", "reason": "Not found"})
 
-        if dispute_index < 0:
-            return json.dumps({"status": "error", "reason": "No open dispute found"})
+        if flag_index < 0:
+            return json.dumps({"status": "error", "reason": "No open flag found"})
 
-        if dispute["raised_by"] == wallet_address:
-            return json.dumps({"status": "error", "reason": "Cannot resolve your own dispute"})
+        if flag["raised_by"] == wallet_address:
+            return json.dumps({"status": "error", "reason": "Cannot review your own flag"})
 
         if resolution.strip().upper().startswith("VALID"):
-            campaign["status"] = "rejected"
-            if campaign["wallet"] not in self.blacklist:
-                self.blacklist.append(campaign["wallet"])
+            project["status"] = "rejected"
+            if project["wallet"] not in self.blacklist:
+                self.blacklist.append(project["wallet"])
         else:
-            campaign["status"] = "active"
+            project["status"] = "active"
 
-        dispute["status"] = "resolved"
-        dispute["resolution"] = resolution
-        self.disputes[dispute_index] = json.dumps(dispute)
+        flag["status"] = "resolved"
+        flag["resolution"] = resolution
+        self.disputes[flag_index] = json.dumps(flag)
 
-        self.campaigns[campaign_id] = json.dumps(campaign)
+        self.campaigns[project_id] = json.dumps(project)
 
         return json.dumps({"status": "success", "resolution": resolution})
 
     # ─── VIEW METHODS ───
 
     @gl.public.view
-    def get_campaigns(self, status: str) -> str:
-        campaigns = [json.loads(v) for k, v in self.campaigns.items()]
+    def get_projects(self, status: str) -> str:
+        projects = [json.loads(v) for k, v in self.campaigns.items()]
         if status:
-            campaigns = [c for c in campaigns if c["status"] == status]
-        return json.dumps(campaigns)
+            projects = [p for p in projects if p["status"] == status]
+        return json.dumps(projects)
 
     @gl.public.view
-    def get_campaign(self, campaign_id: str) -> str:
-        return json.dumps(json.loads(self.campaigns[campaign_id])) if campaign_id in self.campaigns else json.dumps(None)
+    def get_project(self, project_id: str) -> str:
+        return json.dumps(json.loads(self.campaigns[project_id])) if project_id in self.campaigns else json.dumps(None)
 
     @gl.public.view
-    def get_donations(self, campaign_id: str) -> str:
-        return json.dumps([json.loads(d) for d in self.donations if json.loads(d)["campaign_id"] == campaign_id])
+    def get_funders(self, project_id: str) -> str:
+        return json.dumps([json.loads(d) for d in self.donations if json.loads(d)["project_id"] == project_id])
 
     @gl.public.view
-    def get_dispute(self, campaign_id: str) -> str:
-        disputes = [json.loads(d) for d in self.disputes if json.loads(d)["campaign_id"] == campaign_id]
-        return json.dumps(disputes[0] if disputes else None)
+    def get_flag(self, project_id: str) -> str:
+        flags = [json.loads(d) for d in self.disputes if json.loads(d)["project_id"] == project_id]
+        return json.dumps(flags[0] if flags else None)
 
     @gl.public.view
     def get_blacklist(self) -> str:
@@ -324,7 +324,7 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
 
 SCORING RULES:
 - If any fetched data shows "No data available" score that factor 0pts and continue — NEVER override the final score
-- Missing data for any factor means 0pts for THAT FACTOR ONLY — not 0 for the entire campaign
+- Missing data for any factor means 0pts for THAT FACTOR ONLY — not 0 for the entire project
 - Never guess or infer data that is not explicitly present in the fetched content
 - Every factor is independent — one missing factor NEVER affects other factors or the final score
 - The final normalized score is ALWAYS round((total/145)*100) — never override this with 0
