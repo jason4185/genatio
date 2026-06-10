@@ -517,9 +517,37 @@ Areas for Improvement:
 - Add an open source license to your repository to improve your score"""
             )
 
-        result = gl.eq_principle.prompt_non_comparative(
-            verify,
-            task="Score this open source grant application on a scale of 0 to 100 based on the provided GitHub data, wallet trust, story quality, and funding purpose specificity.",
-            criteria="The output is valid if: (1) the first line is a number between 0 and 100, (2) the score is consistent with the 9-factor scoring rubric — a score above 85 requires strong GitHub evidence, recent commits, license, and good wallet age; a score below 50 should reflect clearly missing or weak factors, (3) the output is followed by a Verification Summary and Areas for Improvement. Reject if the first line is not a number or the score is implausible for the given criteria."
-        )
+        def validator_fn(leaders_res):
+            if not isinstance(leaders_res, gl.vm.Return):
+                return False
+
+            try:
+                first_line = leaders_res.calldata.strip().split('\n')[0].strip()
+                digits = ''.join(c for c in first_line if c.isdigit())
+                leader_score = int(digits) if digits else 0
+                if not digits:
+                    return False
+            except:
+                return False
+
+            try:
+                raw = gl.nondet.web.render(github_api_url, mode="text") or ""
+            except:
+                raw = ""
+
+            repo_not_found = '"message"' in raw and '"Not Found"' in raw
+            repo_is_private = '"private":true' in raw or '"private": true' in raw
+            has_license = '"license"' in raw and '"key"' in raw
+            recent_commits = any(f'"pushed_at":"{y}' in raw or f'"pushed_at": "{y}' in raw for y in ["2026", "2025"])
+
+            if (repo_not_found or repo_is_private) and leader_score >= 85:
+                return False
+            if repo_not_found and leader_score >= 50:
+                return False
+            if leader_score >= 85 and not recent_commits and not has_license:
+                return False
+
+            return True
+
+        result = gl.vm.run_nondet_unsafe(verify, validator_fn)
         return result
