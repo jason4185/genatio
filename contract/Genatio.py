@@ -24,15 +24,6 @@ class Genatio(gl.Contract):
         github_repo_url: str,
         funding_purpose: str
     ) -> str:
-        # Blacklist check
-        if wallet_address in self.blacklist:
-            return json.dumps({"status": "rejected", "reason": "Wallet is blacklisted"})
-
-        # Duplicate check
-        active = [json.loads(v) for k, v in self.campaigns.items() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] in ["active", "vouching"]]
-        if len(active) >= 2:
-            return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
-
         if duration_days != u256(7) and duration_days != u256(14) and duration_days != u256(30):
             return json.dumps({"status": "rejected", "reason": "Invalid duration. Choose 7, 14, or 30 days"})
 
@@ -43,6 +34,16 @@ class Genatio(gl.Contract):
             github_repo_url,
             funding_purpose
         )
+
+        # ALL storage reads happen AFTER the non-deterministic call
+        blacklist = json.loads(self.blacklist)
+        if wallet_address in blacklist:
+            return json.dumps({"status": "rejected", "reason": "Wallet is blacklisted"})
+
+        campaigns = json.loads(self.campaigns)
+        active = [json.loads(v) for k, v in campaigns.items() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] in ["active", "vouching"]]
+        if len(active) >= 2:
+            return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
 
         try:
             first_line = result.strip().split('\n')[0].strip()
@@ -60,7 +61,7 @@ class Genatio(gl.Contract):
         else:
             status = "rejected"
 
-        campaign_id = str(len(self.campaigns) + 1)
+        campaign_id = str(len(campaigns) + 1)
 
         campaign = {
             "id": campaign_id,
