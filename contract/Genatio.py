@@ -84,8 +84,7 @@ class Genatio(gl.Contract):
         return json.dumps({
             "status": status,
             "score": str(score),
-            "campaign_id": campaign_id,
-            "verification": result.strip()
+            "campaign_id": campaign_id
         })
 
     @gl.public.write
