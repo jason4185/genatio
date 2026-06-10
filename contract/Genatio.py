@@ -1,4 +1,4 @@
-# v0.2.16
+# v0.2.17
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
 import json
@@ -8,7 +8,6 @@ class Genatio(gl.Contract):
     donations: DynArray[str]
     disputes: DynArray[str]
     blacklist: DynArray[str]
-    vouches: DynArray[str]
 
     def __init__(self):
         pass
@@ -22,6 +21,7 @@ class Genatio(gl.Contract):
         goal_usd: u256,
         duration_days: u256,
         github_repo_url: str,
+        live_url: str,
         funding_purpose: str
     ) -> str:
         if duration_days != u256(7) and duration_days != u256(14) and duration_days != u256(30):
@@ -32,6 +32,7 @@ class Genatio(gl.Contract):
             title,
             story,
             github_repo_url,
+            live_url,
             funding_purpose
         )
 
@@ -39,7 +40,7 @@ class Genatio(gl.Contract):
         if wallet_address in self.blacklist:
             return json.dumps({"status": "rejected", "reason": "Wallet is blacklisted"})
 
-        active = [json.loads(v) for k, v in self.campaigns.items() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] in ["active", "vouching"]]
+        active = [json.loads(v) for k, v in self.campaigns.items() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] == "active"]
         if len(active) >= 2:
             return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
 
@@ -52,10 +53,8 @@ class Genatio(gl.Contract):
         except:
             score = u256(0)
 
-        if u256(score) >= u256(85):
+        if u256(score) >= u256(50):
             status = "active"
-        elif u256(score) >= u256(50):
-            status = "vouching"
         else:
             return json.dumps({"status": "rejected", "score": str(score)})
 
@@ -70,6 +69,7 @@ class Genatio(gl.Contract):
             "duration_days": str(duration_days),
             "raised_usd": "0",
             "github_repo_url": github_repo_url,
+            "live_url": live_url,
             "funding_purpose": funding_purpose,
             "status": status,
             "score": str(score),
@@ -119,86 +119,6 @@ class Genatio(gl.Contract):
         return json.dumps({"status": "success"})
 
     @gl.public.write
-    def vouch_campaign(
-        self,
-        wallet_address: str,
-        campaign_id: str
-    ) -> str:
-        # eq_principle FIRST — closure only needs wallet_address param, no storage reads before
-        def get_wallet_score():
-            try:
-                bradbury_data = gl.nondet.web.get(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}").body.decode("utf-8")[:3000]
-            except:
-                bradbury_data = "No data available"
-            try:
-                eth_data = gl.nondet.web.get(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc").body.decode("utf-8")[:3000]
-            except:
-                eth_data = "No data available"
-            return gl.nondet.exec_prompt(
-                f"""IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
-
-Check wallet age for address: {wallet_address}
-
-Bradbury testnet data:
-{bradbury_data}
-
-Ethereum Mainnet transactions:
-{eth_data}
-
-Score wallet age (use best age from either chain):
-2 to 3 months = 20pts
-1 to 2 months = 15pts
-2 weeks to 1 month = 10pts
-1 to 2 weeks = 5pts
-Under 1 week = 0pts
-
-Score Ethereum transaction count:
-Over 100 = 20pts
-50 to 100 = 15pts
-20 to 50 = 10pts
-10 to 20 = 5pts
-Under 10 = 2pts
-Zero = 0pts
-
-If BOTH chains show wallet age under 1 week reply exactly: REJECTED
-Otherwise reply with total score as a number only. Maximum 40."""
-            )
-        wallet_score_result = gl.eq_principle.prompt_comparative(
-            get_wallet_score,
-            "Both outputs are equivalent if both say REJECTED, or if both produce a score that falls in the same tier: below 20, 20 to 49, or 50 and above"
-        )
-        if "REJECTED" in wallet_score_result.upper():
-            return json.dumps({"status": "error", "reason": "Wallet too new to vouch"})
-        try:
-            wallet_score_digits = ''.join(filter(str.isdigit, wallet_score_result))
-            wallet_score_val = wallet_score_digits if wallet_score_digits else "0"
-        except:
-            wallet_score_val = "0"
-        if u256(wallet_score_val) < u256(20):
-            return json.dumps({"status": "error", "reason": "Wallet too new to vouch"})
-
-        # ALL storage reads AFTER eq_principle
-        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
-        if not campaign:
-            return json.dumps({"status": "error", "reason": "Campaign not found"})
-        if campaign["status"] != "vouching":
-            return json.dumps({"status": "error", "reason": "Campaign not in vouching state"})
-
-        already = [v for v in self.vouches if json.loads(v)["campaign_id"] == campaign_id and json.loads(v)["wallet"] == wallet_address]
-        if already:
-            return json.dumps({"status": "error", "reason": "Already vouched"})
-
-        self.vouches.append(json.dumps({"campaign_id": campaign_id, "wallet": wallet_address}))
-
-        campaign_vouches = [v for v in self.vouches if json.loads(v)["campaign_id"] == campaign_id]
-        if len(campaign_vouches) >= 5:
-            campaign["status"] = "active"
-
-        self.campaigns[campaign_id] = json.dumps(campaign)
-
-        return json.dumps({"status": "success", "vouch_count": str(len(campaign_vouches))})
-
-    @gl.public.write
     def raise_dispute(
         self,
         wallet_address: str,
@@ -236,7 +156,7 @@ Otherwise reply with total score as a number only. Maximum 40."""
             return json.dumps({"status": "error", "reason": "Not your campaign"})
         if campaign["status"] == "ended":
             return json.dumps({"status": "error", "reason": "Campaign already ended"})
-        if campaign["status"] not in ["active", "vouching"]:
+        if campaign["status"] != "active":
             return json.dumps({"status": "error", "reason": "Campaign cannot be ended"})
         campaign["status"] = "ended"
         self.campaigns[campaign_id] = json.dumps(campaign)
@@ -358,10 +278,6 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
         return json.dumps([json.loads(d) for d in self.donations if json.loads(d)["campaign_id"] == campaign_id])
 
     @gl.public.view
-    def get_vouches(self, campaign_id: str) -> str:
-        return json.dumps([json.loads(v) for v in self.vouches if json.loads(v)["campaign_id"] == campaign_id])
-
-    @gl.public.view
     def get_dispute(self, campaign_id: str) -> str:
         disputes = [json.loads(d) for d in self.disputes if json.loads(d)["campaign_id"] == campaign_id]
         return json.dumps(disputes[0] if disputes else None)
@@ -378,6 +294,7 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
         title: str,
         story: str,
         github_repo_url: str,
+        live_url: str,
         funding_purpose: str
     ) -> str:
         parts = github_repo_url.rstrip('/').split('/')
@@ -403,6 +320,12 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
                 commits_data = gl.nondet.web.get(github_commits_url).body.decode("utf-8")[:3000]
             except:
                 commits_data = "No data available"
+            live_data = ""
+            if live_url:
+                try:
+                    live_data = (gl.nondet.web.render(live_url, mode="text") or "")[:500]
+                except:
+                    live_data = ""
 
             return gl.nondet.exec_prompt(
                 f"""You are verifying an open source project grant application on Genatio.
@@ -415,7 +338,7 @@ SCORING RULES:
 - If only one chain has data use that chain's score
 - If neither chain has data score wallet trust 0pts for that factor only and continue
 - Every factor is independent — one missing factor NEVER affects other factors or the final score
-- The final normalized score is ALWAYS round((total/140)*100) — never override this with 0
+- The final normalized score is ALWAYS round((total/155)*100) — never override this with 0
 
 IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
 Be thorough, honest, and strict. Follow every step exactly and in order.
@@ -509,12 +432,19 @@ Stars above 10 and forks above 3 = 10pts
 Stars above 3 or forks above 1 = 5pts
 Stars 0 and forks 0 = 0pts
 
-Factor 9 — Wallet trust score:
+Factor 9 — Live URL accessible:
+Live URL: {live_url}
+Fetched content: {live_data[:200] if live_data else "Not provided"}
+Loads with real content = 15pts
+Loads but sparse = 7pts
+Not provided or does not load = 0pts
+
+Factor 10 — Wallet trust score:
 Use WALLET_SCORE from Step 2.
 Normalize to max 10pts: round(WALLET_SCORE / 4).
 
-Add all factor scores. Maximum = 140pts.
-Normalize to 100: round((total / 140) * 100).
+Add all factor scores. Maximum = 155pts.
+Normalize to 100: round((total / 155) * 100).
 
 === FINAL REPLY ===
 Reply in this exact format and nothing else:
