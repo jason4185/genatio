@@ -183,7 +183,7 @@ class Genatio(gl.Contract):
                 raise gl.vm.UserError("No open flag found")
             parts = c['github_repo_url'].rstrip('/').split('/')
             owner = parts[-2] if len(parts) >= 2 else ""
-            repo = parts[-1] if len(parts) >= 1 else ""
+            repo = parts[-1].replace(".git", "") if len(parts) >= 1 else ""
             github_api_url = f"https://api.github.com/repos/{owner}/{repo}"
             try:
                 github_data = gl.nondet.web.get(github_api_url).body.decode("utf-8")[:3000]
@@ -302,7 +302,7 @@ If the project appears legitimate and the flag is unfounded reply exactly: INVAL
     ) -> str:
         parts = github_repo_url.rstrip('/').split('/')
         owner = parts[-2] if len(parts) >= 2 else ""
-        repo = parts[-1] if len(parts) >= 1 else ""
+        repo = parts[-1].replace(".git", "") if len(parts) >= 1 else ""
         github_api_url = f"https://api.github.com/repos/{owner}/{repo}"
         github_commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
 
