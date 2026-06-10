@@ -53,7 +53,7 @@ class Genatio(gl.Contract):
         except:
             score = u256(0)
 
-        if u256(score) >= u256(50):
+        if u256(score) >= u256(65):
             status = "active"
         else:
             return json.dumps({"status": "rejected", "score": str(score)})
