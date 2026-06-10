@@ -76,6 +76,7 @@ class Genatio(gl.Contract):
             "donor_count": "0",
             "chains_used": [],
             "milestones": [],
+            "created_at": gl.message_raw['datetime'],
         }
         self.campaigns[project_id] = json.dumps(project)
 
@@ -324,6 +325,7 @@ If the project appears legitimate and the flag is unfounded reply exactly: INVAL
 
             return gl.nondet.exec_prompt(
                 f"""You are verifying an open source project grant application on Genatio.
+Today's date: {gl.message_raw['datetime'][:10]}
 
 SCORING RULES:
 - If any fetched data shows "No data available" score that factor 0pts and continue — NEVER override the final score
