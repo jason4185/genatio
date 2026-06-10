@@ -45,9 +45,7 @@ class Genatio(gl.Contract):
             return json.dumps({"status": "rejected", "reason": "You already have 2 active projects"})
 
         try:
-            first_line = result.strip().split('\n')[0].strip()
-            digits = ''.join(filter(str.isdigit, first_line))
-            score = u256(digits) if digits else u256(0)
+            score = u256(int(result.strip()))
             if score > u256(100):
                 score = u256(100)
         except:
@@ -323,7 +321,7 @@ If the project appears legitimate and the flag is unfounded reply exactly: INVAL
                 except:
                     live_data = ""
 
-            return gl.nondet.exec_prompt(
+            analysis = gl.nondet.exec_prompt(
                 f"""You are verifying an open source project grant application on Genatio.
 Today's date: {gl.message_raw['datetime'][:10]}
 
@@ -406,41 +404,26 @@ Add all factor scores. Maximum = 145pts.
 Normalize to 100: round((total / 145) * 100).
 
 === FINAL REPLY ===
-Reply in this exact format and nothing else:
-[score]
-Verification Summary:
-- [strength 1]
-- [strength 2]
-- [strength 3]
-
-Areas for Improvement:
-- [weakness 1]
-- [weakness 2]
-- [weakness 3]
-
-Where [score] is a single number between 0 and 100 on the first line.
-Example:
-82
-Verification Summary:
-- Repository is active with recent commits and a well-documented README
-- GitHub repository has active commits and strong community engagement
-- Project has demonstrated community interest with stars and forks
-
-Areas for Improvement:
-- No open source license found — add a LICENSE file to your repository
-- Add an open source license to your repository to improve your score"""
+Reply with a JSON object only, no other text:
+{{
+  "score": <integer 0-100>,
+  "strengths": ["strength 1", "strength 2", "strength 3"],
+  "weaknesses": ["weakness 1", "weakness 2", "weakness 3"]
+}}""",
+                response_format="json"
             )
+            try:
+                score_raw = analysis.get("score", 0)
+                return str(max(0, min(100, int(round(float(str(score_raw).strip()))))))
+            except:
+                return "0"
 
         def validator_fn(leaders_res):
             if not isinstance(leaders_res, gl.vm.Return):
                 return False
 
             try:
-                first_line = leaders_res.calldata.strip().split('\n')[0].strip()
-                digits = ''.join(c for c in first_line if c.isdigit())
-                leader_score = int(digits) if digits else 0
-                if not digits:
-                    return False
+                leader_score = int(leaders_res.calldata.strip())
             except:
                 return False
 
