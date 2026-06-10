@@ -1,17 +1,21 @@
-# v0.2.16
+# v0.2.17
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
 import json
 
 class Genatio(gl.Contract):
-    campaigns: TreeMap[str, str]
-    donations: DynArray[str]
-    disputes: DynArray[str]
-    blacklist: DynArray[str]
-    vouches: DynArray[str]
+    campaigns: str
+    donations: str
+    disputes: str
+    blacklist: str
+    vouches: str
 
     def __init__(self):
-        pass
+        self.campaigns = json.dumps({})
+        self.donations = json.dumps([])
+        self.disputes = json.dumps([])
+        self.blacklist = json.dumps([])
+        self.vouches = json.dumps([])
 
     @gl.public.write
     def create_campaign(
@@ -22,35 +26,31 @@ class Genatio(gl.Contract):
         goal_usd: u256,
         duration_days: u256,
         github_repo_url: str,
-        live_url: str,
-        upload_url_1: str,
-        upload_url_2: str,
-        upload_url_3: str,
         funding_purpose: str
     ) -> str:
-        # Blacklist check
-        if wallet_address in self.blacklist:
-            return json.dumps({"status": "rejected", "reason": "Wallet is blacklisted"})
-
-        # Duplicate check
-        active = [json.loads(v) for v in self.campaigns.values() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] in ["active", "vouching"]]
-        if len(active) >= 2:
-            return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
-
         if duration_days != u256(7) and duration_days != u256(14) and duration_days != u256(30):
             return json.dumps({"status": "rejected", "reason": "Invalid duration. Choose 7, 14, or 30 days"})
 
-        result = self._verify_campaign(
-            wallet_address,
-            title,
-            story,
-            github_repo_url,
-            live_url,
-            upload_url_1,
-            upload_url_2,
-            upload_url_3,
-            funding_purpose
-        )
+        try:
+            result = self._verify_campaign(
+                wallet_address,
+                title,
+                story,
+                github_repo_url,
+                funding_purpose
+            )
+        except Exception as e:
+            result = f"0\nVerification Summary:\n- Verification failed\n\nAreas for Improvement:\n- Please resubmit\n\nError: {str(e)[:100]}"
+
+        # ALL storage reads happen AFTER the non-deterministic call
+        blacklist = json.loads(self.blacklist)
+        if wallet_address in blacklist:
+            return json.dumps({"status": "rejected", "reason": "Wallet is blacklisted"})
+
+        campaigns = json.loads(self.campaigns)
+        active = [c for c in campaigns.values() if c["wallet"] == wallet_address and c["status"] in ["active", "vouching"]]
+        if len(active) >= 2:
+            return json.dumps({"status": "rejected", "reason": "You already have 2 active campaigns"})
 
         try:
             first_line = result.strip().split('\n')[0].strip()
@@ -68,7 +68,7 @@ class Genatio(gl.Contract):
         else:
             status = "rejected"
 
-        campaign_id = str(len(self.campaigns) + 1)
+        campaign_id = str(len(campaigns) + 1)
 
         campaign = {
             "id": campaign_id,
@@ -79,10 +79,6 @@ class Genatio(gl.Contract):
             "duration_days": str(duration_days),
             "raised_usd": "0",
             "github_repo_url": github_repo_url,
-            "live_url": live_url,
-            "upload_url_1": upload_url_1,
-            "upload_url_2": upload_url_2,
-            "upload_url_3": upload_url_3,
             "funding_purpose": funding_purpose,
             "status": status,
             "score": str(score),
@@ -90,7 +86,8 @@ class Genatio(gl.Contract):
             "chains_used": [],
             "milestones": [],
         }
-        self.campaigns[campaign_id] = json.dumps(campaign)
+        campaigns[campaign_id] = campaign
+        self.campaigns = json.dumps(campaigns)
 
         return json.dumps({"status": status, "score": str(score), "campaign_id": campaign_id})
 
@@ -104,7 +101,8 @@ class Genatio(gl.Contract):
         chain: str,
         tx_hash: str
     ) -> str:
-        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
+        campaigns = json.loads(self.campaigns)
+        campaign = campaigns.get(campaign_id)
         if not campaign:
             return json.dumps({"status": "error", "reason": "Campaign not found"})
         if campaign["status"] != "active":
@@ -115,15 +113,19 @@ class Genatio(gl.Contract):
         if chain not in campaign["chains_used"]:
             campaign["chains_used"].append(chain)
 
-        self.campaigns[campaign_id] = json.dumps(campaign)
-        self.donations.append(json.dumps({
+        campaigns[campaign_id] = campaign
+        self.campaigns = json.dumps(campaigns)
+
+        donations = json.loads(self.donations)
+        donations.append({
             "campaign_id": campaign_id,
             "wallet": wallet_address,
             "amount_token": amount_token,
             "amount_usd": str(amount_usd),
             "chain": chain,
             "tx_hash": tx_hash
-        }))
+        })
+        self.donations = json.dumps(donations)
 
         return json.dumps({"status": "success"})
 
@@ -133,7 +135,8 @@ class Genatio(gl.Contract):
         wallet_address: str,
         campaign_id: str
     ) -> str:
-        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
+        campaigns = json.loads(self.campaigns)
+        campaign = campaigns.get(campaign_id)
         if not campaign:
             return json.dumps({"status": "error", "reason": "Campaign not found"})
         if campaign["status"] != "vouching":
@@ -185,17 +188,20 @@ Otherwise reply with total score as a number only. Maximum 40."""
         if u256(wallet_score_val) < u256(20):
             return json.dumps({"status": "error", "reason": "Wallet too new to vouch"})
 
-        already = [v for v in self.vouches if json.loads(v)["campaign_id"] == campaign_id and json.loads(v)["wallet"] == wallet_address]
+        vouches = json.loads(self.vouches)
+        already = [v for v in vouches if v["campaign_id"] == campaign_id and v["wallet"] == wallet_address]
         if already:
             return json.dumps({"status": "error", "reason": "Already vouched"})
 
-        self.vouches.append(json.dumps({"campaign_id": campaign_id, "wallet": wallet_address}))
+        vouches.append({"campaign_id": campaign_id, "wallet": wallet_address})
+        self.vouches = json.dumps(vouches)
 
-        campaign_vouches = [v for v in self.vouches if json.loads(v)["campaign_id"] == campaign_id]
+        campaign_vouches = [v for v in vouches if v["campaign_id"] == campaign_id]
         if len(campaign_vouches) >= 5:
             campaign["status"] = "active"
 
-        self.campaigns[campaign_id] = json.dumps(campaign)
+        campaigns[campaign_id] = campaign
+        self.campaigns = json.dumps(campaigns)
 
         return json.dumps({"status": "success", "vouch_count": str(len(campaign_vouches))})
 
@@ -206,21 +212,25 @@ Otherwise reply with total score as a number only. Maximum 40."""
         campaign_id: str,
         dispute_story: str
     ) -> str:
-        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
+        campaigns = json.loads(self.campaigns)
+        campaign = campaigns.get(campaign_id)
         if not campaign:
             return json.dumps({"status": "error", "reason": "Campaign not found"})
 
-        dispute_id = str(len(self.disputes) + 1)
-        self.disputes.append(json.dumps({
+        disputes = json.loads(self.disputes)
+        dispute_id = str(len(disputes) + 1)
+        disputes.append({
             "id": dispute_id,
             "campaign_id": campaign_id,
             "raised_by": wallet_address,
             "dispute_story": dispute_story,
             "status": "open"
-        }))
+        })
+        self.disputes = json.dumps(disputes)
 
         campaign["status"] = "disputed"
-        self.campaigns[campaign_id] = json.dumps(campaign)
+        campaigns[campaign_id] = campaign
+        self.campaigns = json.dumps(campaigns)
 
         return json.dumps({"status": "success", "dispute_id": dispute_id})
 
@@ -230,7 +240,8 @@ Otherwise reply with total score as a number only. Maximum 40."""
         wallet_address: str,
         campaign_id: str
     ) -> str:
-        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
+        campaigns = json.loads(self.campaigns)
+        campaign = campaigns.get(campaign_id)
         if not campaign:
             return json.dumps({"status": "error", "reason": "Campaign not found"})
         if campaign["wallet"] != wallet_address:
@@ -240,7 +251,8 @@ Otherwise reply with total score as a number only. Maximum 40."""
         if campaign["status"] not in ["active", "vouching"]:
             return json.dumps({"status": "error", "reason": "Campaign cannot be ended"})
         campaign["status"] = "ended"
-        self.campaigns[campaign_id] = json.dumps(campaign)
+        campaigns[campaign_id] = campaign
+        self.campaigns = json.dumps(campaigns)
         return json.dumps({"status": "success", "campaign_id": campaign_id})
 
     @gl.public.write
@@ -249,12 +261,14 @@ Otherwise reply with total score as a number only. Maximum 40."""
         wallet_address: str,
         campaign_id: str
     ) -> str:
-        campaign = json.loads(self.campaigns[campaign_id]) if campaign_id in self.campaigns else None
+        campaigns = json.loads(self.campaigns)
+        campaign = campaigns.get(campaign_id)
 
+        disputes = json.loads(self.disputes)
         dispute = None
         dispute_index = -1
-        for i in range(len(self.disputes)):
-            d = json.loads(self.disputes[i])
+        for i in range(len(disputes)):
+            d = disputes[i]
             if d["campaign_id"] == campaign_id and d["status"] == "open":
                 dispute = d
                 dispute_index = i
@@ -310,16 +324,20 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
 
         if resolution.strip().upper().startswith("VALID"):
             campaign["status"] = "rejected"
-            if campaign["wallet"] not in self.blacklist:
-                self.blacklist.append(campaign["wallet"])
+            blacklist = json.loads(self.blacklist)
+            if campaign["wallet"] not in blacklist:
+                blacklist.append(campaign["wallet"])
+                self.blacklist = json.dumps(blacklist)
         else:
             campaign["status"] = "active"
 
         dispute["status"] = "resolved"
         dispute["resolution"] = resolution
-        self.disputes[dispute_index] = json.dumps(dispute)
+        disputes[dispute_index] = dispute
+        self.disputes = json.dumps(disputes)
 
-        self.campaigns[campaign_id] = json.dumps(campaign)
+        campaigns[campaign_id] = campaign
+        self.campaigns = json.dumps(campaigns)
 
         return json.dumps({"status": "success", "resolution": resolution})
 
@@ -327,31 +345,36 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
 
     @gl.public.view
     def get_campaigns(self, status: str) -> str:
-        campaigns = [json.loads(v) for v in self.campaigns.values()]
+        campaigns = json.loads(self.campaigns)
+        result = list(campaigns.values())
         if status:
-            campaigns = [c for c in campaigns if c["status"] == status]
-        return json.dumps(campaigns)
+            result = [c for c in result if c["status"] == status]
+        return json.dumps(result)
 
     @gl.public.view
     def get_campaign(self, campaign_id: str) -> str:
-        return json.dumps(json.loads(self.campaigns[campaign_id])) if campaign_id in self.campaigns else json.dumps(None)
+        campaigns = json.loads(self.campaigns)
+        return json.dumps(campaigns.get(campaign_id))
 
     @gl.public.view
     def get_donations(self, campaign_id: str) -> str:
-        return json.dumps([json.loads(d) for d in self.donations if json.loads(d)["campaign_id"] == campaign_id])
+        donations = json.loads(self.donations)
+        return json.dumps([d for d in donations if d["campaign_id"] == campaign_id])
 
     @gl.public.view
     def get_vouches(self, campaign_id: str) -> str:
-        return json.dumps([json.loads(v) for v in self.vouches if json.loads(v)["campaign_id"] == campaign_id])
+        vouches = json.loads(self.vouches)
+        return json.dumps([v for v in vouches if v["campaign_id"] == campaign_id])
 
     @gl.public.view
     def get_dispute(self, campaign_id: str) -> str:
-        disputes = [json.loads(d) for d in self.disputes if json.loads(d)["campaign_id"] == campaign_id]
-        return json.dumps(disputes[0] if disputes else None)
+        disputes = json.loads(self.disputes)
+        result = [d for d in disputes if d["campaign_id"] == campaign_id]
+        return json.dumps(result[0] if result else None)
 
     @gl.public.view
     def get_blacklist(self) -> str:
-        return json.dumps(list(self.blacklist))
+        return self.blacklist
 
     # ─── INTERNAL METHODS ───
 
@@ -361,10 +384,6 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
         title: str,
         story: str,
         github_repo_url: str,
-        live_url: str,
-        upload_url_1: str,
-        upload_url_2: str,
-        upload_url_3: str,
         funding_purpose: str
     ) -> str:
         parts = github_repo_url.rstrip('/').split('/')
@@ -374,173 +393,48 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
         github_commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
 
         def verify():
-            bradbury_data = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}", mode="text") or "No data available"
-            eth_data = gl.nondet.web.render(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or "No data available"
-            repo_data = gl.nondet.web.render(github_api_url, mode="text") or "No data available"
-            commits_data = gl.nondet.web.render(github_commits_url, mode="text") or "No data available"
-            live_data = (gl.nondet.web.render(live_url, mode="text") or "No data available") if live_url else "No data available"
+            bradbury_raw = gl.nondet.web.render(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}", mode="text") or ""
+            eth_raw = gl.nondet.web.render(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc", mode="text") or ""
+            repo_raw = gl.nondet.web.render(github_api_url, mode="text") or ""
+            commits_raw = gl.nondet.web.render(github_commits_url, mode="text") or ""
+
+            bradbury_data = bradbury_raw[:500] if bradbury_raw else "No data available"
+            eth_data = eth_raw[:500] if eth_raw else "No data available"
+            repo_data = repo_raw[:800] if repo_raw else "No data available"
+            commits_data = commits_raw[:300] if commits_raw else "No data available"
 
             return gl.nondet.exec_prompt(
-                f"""You are verifying an open source project grant application on Genatio.
+                f"""You are verifying an open source project grant on Genatio. Score based ONLY on the data below.
 
-SCORING RULES:
-- If any fetched data shows "No data available" score that factor 0pts and continue
-- Never guess or infer data that is not explicitly present in the fetched content
-- For wallet trust use the best age score from either Bradbury OR Ethereum — not both required
-- If only one chain has data use that chain's score
-- If neither chain has data score wallet trust 0pts and continue — do not reject for missing data alone
-- Missing screenshots score 0pts — do not reject
-- Every factor is independent — one missing factor never blocks the others
+WALLET: {wallet_address}
+BRADBURY DATA (truncated): {bradbury_data}
+ETHEREUM DATA (truncated): {eth_data}
+GITHUB REPO (truncated): {repo_data}
+RECENT COMMITS (truncated): {commits_data}
+TITLE: {title}
+STORY (first 200 chars): {story[:200]}
+FUNDING PURPOSE (first 200 chars): {funding_purpose[:200]}
 
-CRITICAL: Respond with TEXT ONLY. Do NOT call any tools.
-- Do NOT use Read, Bash, Grep, Glob, Edit, Write, or ANY other tool.
-- You already have all the context you need in the conversation above.
-- Tool calls will be REJECTED and will waste your only turn — you will fail the task.
-- Your entire response must be plain text: an <analysis> block followed by a <summary> block.
+Score these factors (reply with ONLY a number 0-100):
+- Wallet trust (age + activity on either chain): 0-10pts
+- Repo exists and public: 0-20pts
+- Recent commits (last 30 days = 20pts, 90 days = 14pts, older = 0pts): 0-20pts
+- README quality (from description field): 0-15pts
+- License present: 0-10pts
+- Repo age (90+ days = 10pts, 30-90 = 7pts, 7-30 = 3pts, under 7 = 0pts): 0-10pts
+- Funding purpose specificity: 0-20pts
+- Story quality: 0-15pts
+- Community (stars/forks): 0-10pts
 
-IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
-Be thorough, honest, and strict. Follow every step exactly and in order.
-
-=== STEP 1: LANGUAGE CHECK ===
-Read the title and story below.
-Language score: English = 10pts, Not English = 0pts
-Title: {title}
-Story: {story}
-
-=== STEP 2: WALLET TRUST CHECK ===
-Wallet address: {wallet_address}
-
-Bradbury testnet explorer data:
-{bradbury_data}
-
-Ethereum Mainnet transactions:
-{eth_data}
-
-Score wallet age (use best age from either chain):
-2 to 3 months = 20pts
-1 to 2 months = 15pts
-2 weeks to 1 month = 10pts
-1 to 2 weeks = 5pts
-Under 1 week = 0pts
-
-Score Ethereum transaction count:
-Over 100 = 20pts
-50 to 100 = 15pts
-20 to 50 = 10pts
-10 to 20 = 5pts
-Under 10 = 2pts
-Zero = 0pts
-
-Wallet scoring rules:
-- If only one chain has data use that chain's score
-- If one chain is under 1 week but the other is older use the older chain's score
-- If BOTH chains show wallet age under 1 week score wallet trust 0pts and continue — do not reject
-- The wallet being checked is the connected wallet that signed this transaction: {wallet_address}
-Maximum wallet trust score = 40pts. Note it as WALLET_SCORE.
-
-=== STEP 3: GITHUB VERIFICATION ===
-
-GitHub repo data:
-{repo_data}
-
-GitHub commit history:
-{commits_data}
-
-Factor 1 — Repo exists and is public:
-Check if repo data loaded and private is false.
-Exists and public = 20pts
-Not found or private = 0pts
-If not found or private score 0pts and continue scoring other factors.
-
-Factor 2 — Commit activity (check pushed_at and commits list):
-Last 30 days = 20pts
-Last 90 days = 14pts
-Last 180 days = 6pts
-Older = 0pts
-
-Factor 3 — README quality (check description field from repo data):
-Detailed description = 15pts
-Basic description = 7pts
-Empty = 0pts
-
-Factor 4 — License present (check license field from repo data):
-License exists = 10pts
-No license = 0pts
-
-Factor 5 — Repo age (check created_at from repo data):
-Over 90 days old = 10pts
-30 to 90 days = 7pts
-7 to 30 days = 3pts
-Under 7 days = 0pts
-
-Factor 6 — Live URL accessible:
-Live URL: {live_url}
-Fetched content: {live_data}
-Loads with real content = 15pts
-Loads but sparse = 7pts
-Does not load or empty = 0pts
-
-Factor 7 — Funding purpose specific:
-Read this funding purpose: {funding_purpose}
-Very specific deliverables = 20pts
-Somewhat specific = 10pts
-Vague = 0pts
-
-Factor 8 — Story quality:
-Read this story: {story}
-Detailed and convincing = 15pts
-Basic = 7pts
-Too short or vague = 0pts
-
-Factor 9 — Screenshots provided:
-Screenshot 1: {upload_url_1}
-Screenshot 2: {upload_url_2}
-Screenshot 3: {upload_url_3}
-All 3 provided and load = 15pts
-1 or 2 provided = 7pts
-None provided = 0pts
-
-Factor 10 — Community engagement (from GitHub repo data):
-Stars above 10 and forks above 3 = 10pts
-Stars above 3 or forks above 1 = 5pts
-Stars 0 and forks 0 = 0pts
-
-Factor 11 — Wallet trust score:
-Use WALLET_SCORE from Step 2.
-Normalize to max 10pts: round(WALLET_SCORE / 4).
-
-Add all factor scores. Maximum = 170pts.
-Normalize to 100: round((total / 170) * 100).
-
-=== FINAL REPLY ===
-Reply in this exact format and nothing else:
-[score]
-Verification Summary:
-- [strength 1]
-- [strength 2]
-- [strength 3]
-
-Areas for Improvement:
-- [weakness 1]
-- [weakness 2]
-- [weakness 3]
-
-Where [score] is a single number between 0 and 100 on the first line.
-Example:
-82
-Verification Summary:
-- Repository is active with recent commits and a well-documented README
-- Live application is accessible and loads real content
-- Project has demonstrated community interest with stars and forks
-
-Areas for Improvement:
-- No open source license found — add a LICENSE file to your repository
-- Wallet activity on both chains is limited — a more established wallet improves trust score
-- Screenshots were not provided — upload 3 screenshots to improve your score"""
+Total maximum = 130pts. Normalize: round((total/130)*100).
+Reply with ONLY a single number between 0 and 100. Nothing else."""
             )
 
-        result = gl.eq_principle.prompt_comparative(
-            verify,
-            "Both outputs are equivalent if the score on the first line of each response falls in the same tier: below 50, between 50 and 84, or 85 and above"
-        )
+        try:
+            result = gl.eq_principle.prompt_comparative(
+                verify,
+                "Both outputs are equivalent if the score on the first line of each response falls in the same tier: below 50, between 50 and 84, or 85 and above"
+            )
+        except Exception as e:
+            return f"0\nVerification error: {str(e)[:200]}\n\nVerification Summary:\n- Verification encountered an error\n\nAreas for Improvement:\n- Please resubmit your campaign"
         return result
