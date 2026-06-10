@@ -428,7 +428,6 @@ Verification Summary:
 
 Areas for Improvement:
 - No open source license found — add a LICENSE file to your repository
-- Wallet activity on both chains is limited — a more established wallet improves trust score
 - Add an open source license to your repository to improve your score"""
             )
 
@@ -458,7 +457,7 @@ Areas for Improvement:
 
             if (repo_not_found or repo_is_private) and leader_score >= 85:
                 return False
-            if repo_not_found and leader_score >= 50:
+            if repo_not_found and leader_score >= 65:
                 return False
             if leader_score >= 85 and not recent_commits and not has_license:
                 return False
