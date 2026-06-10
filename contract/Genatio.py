@@ -185,11 +185,11 @@ class Genatio(gl.Contract):
             repo = parts[-1].replace(".git", "") if len(parts) >= 1 else ""
             github_api_url = f"https://api.github.com/repos/{owner}/{repo}"
             try:
-                github_data = gl.nondet.web.get(github_api_url).body.decode("utf-8")[:3000]
+                github_data = gl.nondet.web.get(github_api_url).body.decode("utf-8")
             except:
                 github_data = "No data available"
             try:
-                commits_data = gl.nondet.web.get(f"https://api.github.com/repos/{owner}/{repo}/commits").body.decode("utf-8")[:3000]
+                commits_data = gl.nondet.web.get(f"https://api.github.com/repos/{owner}/{repo}/commits").body.decode("utf-8")
             except:
                 commits_data = "No data available"
             return gl.nondet.exec_prompt(
@@ -307,17 +307,17 @@ If the project appears legitimate and the flag is unfounded reply exactly: INVAL
 
         def verify():
             try:
-                repo_data = gl.nondet.web.get(github_api_url).body.decode("utf-8")[:3000]
+                repo_data = gl.nondet.web.get(github_api_url).body.decode("utf-8")
             except:
                 repo_data = "No data available"
             try:
-                commits_data = gl.nondet.web.get(github_commits_url).body.decode("utf-8")[:3000]
+                commits_data = gl.nondet.web.get(github_commits_url).body.decode("utf-8")
             except:
                 commits_data = "No data available"
             live_data = ""
             if live_url:
                 try:
-                    live_data = (gl.nondet.web.render(live_url, mode="text") or "")[:500]
+                    live_data = (gl.nondet.web.render(live_url, mode="text") or "")
                 except:
                     live_data = ""
 
@@ -395,7 +395,7 @@ Stars 0 and forks 0 = 0pts
 
 Factor 9 — Live URL accessible:
 Live URL: {live_url}
-Fetched content: {live_data[:200] if live_data else "Not provided"}
+Fetched content: {live_data if live_data else "Not provided"}
 Loads with real content = 15pts
 Loads but sparse = 7pts
 Not provided or does not load = 0pts
