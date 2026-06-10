@@ -1,4 +1,4 @@
-# v0.2.17
+# v0.2.18
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
 import json
@@ -305,14 +305,6 @@ If the campaign appears legitimate and dispute is unfounded reply exactly: INVAL
 
         def verify():
             try:
-                bradbury_data = gl.nondet.web.get(f"https://explorer-bradbury.genlayer.com/api/v2/addresses/{wallet_address}").body.decode("utf-8")[:3000]
-            except:
-                bradbury_data = "No data available"
-            try:
-                eth_data = gl.nondet.web.get(f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&sort=asc").body.decode("utf-8")[:3000]
-            except:
-                eth_data = "No data available"
-            try:
                 repo_data = gl.nondet.web.get(github_api_url).body.decode("utf-8")[:3000]
             except:
                 repo_data = "No data available"
@@ -334,11 +326,8 @@ SCORING RULES:
 - If any fetched data shows "No data available" score that factor 0pts and continue — NEVER override the final score
 - Missing data for any factor means 0pts for THAT FACTOR ONLY — not 0 for the entire campaign
 - Never guess or infer data that is not explicitly present in the fetched content
-- For wallet trust use the best age score from either Bradbury OR Ethereum — not both required
-- If only one chain has data use that chain's score
-- If neither chain has data score wallet trust 0pts for that factor only and continue
 - Every factor is independent — one missing factor NEVER affects other factors or the final score
-- The final normalized score is ALWAYS round((total/155)*100) — never override this with 0
+- The final normalized score is ALWAYS round((total/145)*100) — never override this with 0
 
 IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
 Be thorough, honest, and strict. Follow every step exactly and in order.
@@ -349,38 +338,7 @@ Language score: English = 10pts, Not English = 0pts
 Title: {title}
 Story: {story}
 
-=== STEP 2: WALLET TRUST CHECK ===
-Wallet address: {wallet_address}
-
-Bradbury testnet explorer data:
-{bradbury_data}
-
-Ethereum Mainnet transactions:
-{eth_data}
-
-Score wallet age (use best age from either chain):
-2 to 3 months = 20pts
-1 to 2 months = 15pts
-2 weeks to 1 month = 10pts
-1 to 2 weeks = 5pts
-Under 1 week = 0pts
-
-Score Ethereum transaction count:
-Over 100 = 20pts
-50 to 100 = 15pts
-20 to 50 = 10pts
-10 to 20 = 5pts
-Under 10 = 2pts
-Zero = 0pts
-
-Wallet scoring rules:
-- If only one chain has data use that chain's score
-- If one chain is under 1 week but the other is older use the older chain's score
-- If BOTH chains show wallet age under 1 week score wallet trust 0pts and continue — do not reject
-- The wallet being checked is the connected wallet that signed this transaction: {wallet_address}
-Maximum wallet trust score = 40pts. Note it as WALLET_SCORE.
-
-=== STEP 3: GITHUB VERIFICATION ===
+=== STEP 2: GITHUB VERIFICATION ===
 
 GitHub repo data:
 {repo_data}
@@ -439,12 +397,8 @@ Loads with real content = 15pts
 Loads but sparse = 7pts
 Not provided or does not load = 0pts
 
-Factor 10 — Wallet trust score:
-Use WALLET_SCORE from Step 2.
-Normalize to max 10pts: round(WALLET_SCORE / 4).
-
-Add all factor scores. Maximum = 155pts.
-Normalize to 100: round((total / 155) * 100).
+Add all factor scores. Maximum = 145pts.
+Normalize to 100: round((total / 145) * 100).
 
 === FINAL REPLY ===
 Reply in this exact format and nothing else:
