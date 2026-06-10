@@ -517,8 +517,9 @@ Areas for Improvement:
 - Add an open source license to your repository to improve your score"""
             )
 
-        result = gl.eq_principle.prompt_comparative(
+        result = gl.eq_principle.prompt_non_comparative(
             verify,
-            "Both outputs are equivalent if the score on the first line of each response falls in the same tier: below 50, between 50 and 84, or 85 and above"
+            task="Score this open source grant application on a scale of 0 to 100 based on the provided GitHub data, wallet trust, story quality, and funding purpose specificity.",
+            criteria="The output is valid if: (1) the first line is a number between 0 and 100, (2) the score is consistent with the 9-factor scoring rubric — a score above 85 requires strong GitHub evidence, recent commits, license, and good wallet age; a score below 50 should reflect clearly missing or weak factors, (3) the output is followed by a Verification Summary and Areas for Improvement. Reject if the first line is not a number or the score is implausible for the given criteria."
         )
         return result
