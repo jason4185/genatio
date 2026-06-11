@@ -14,9 +14,10 @@ class Genatio(gl.Contract):
     campaigns: TreeMap[str, str]
     donations: DynArray[str]
     blacklist: DynArray[str]
+    dispute_contract: str
 
     def __init__(self):
-        pass
+        self.dispute_contract = ""
 
     @gl.public.write
     def submit_project(
@@ -140,6 +141,11 @@ class Genatio(gl.Contract):
         project["status"] = "ended"
         self.campaigns[project_id] = json.dumps(project)
         return json.dumps({"status": "success", "project_id": project_id})
+
+    @gl.public.write
+    def set_dispute_contract(self, address: str) -> str:
+        self.dispute_contract = address
+        return json.dumps({"status": "success", "dispute_contract": address})
 
     # ─── DISPUTE CALLBACKS (called by GenatioDispute) ───
 
