@@ -1,7 +1,14 @@
-# v0.3.0
+# v0.3.1
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
 import json
+
+@gl.evm.contract_interface
+class _EOARecipient:
+    class View:
+        pass
+    class Write:
+        pass
 
 class Genatio(gl.Contract):
     campaigns: TreeMap[str, str]
@@ -98,9 +105,8 @@ class Genatio(gl.Contract):
 
         sender = gl.message.sender_address
 
-        # Transfer GEN directly to creator wallet
-        creator = gl.get_contract_at(Address(project["wallet"]))
-        creator.emit_transfer(value=amount, on="finalized")
+        # Transfer GEN directly to creator wallet (EOA-safe via EthSend)
+        _EOARecipient(Address(project["wallet"])).emit_transfer(value=amount)
 
         # Update raised amount
         project["raised_gen"] = str(u256(project.get("raised_gen", "0")) + amount)
