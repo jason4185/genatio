@@ -1,4 +1,4 @@
-# v0.2.21
+# v0.3.0
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
 import json
@@ -6,7 +6,6 @@ import json
 class Genatio(gl.Contract):
     campaigns: TreeMap[str, str]
     donations: DynArray[str]
-    disputes: DynArray[str]
     blacklist: DynArray[str]
 
     def __init__(self):
@@ -18,7 +17,7 @@ class Genatio(gl.Contract):
         wallet_address: str,
         title: str,
         story: str,
-        goal_usd: u256,
+        goal_gen: u256,
         duration_days: u256,
         github_repo_url: str,
         live_url: str,
@@ -63,17 +62,15 @@ class Genatio(gl.Contract):
             "wallet": wallet_address,
             "title": title,
             "story": story,
-            "goal_usd": str(goal_usd),
+            "goal_gen": str(goal_gen),
             "duration_days": str(duration_days),
-            "raised_usd": "0",
+            "raised_gen": "0",
             "github_repo_url": github_repo_url,
             "live_url": live_url,
             "funding_purpose": funding_purpose,
             "status": status,
             "score": str(score),
             "donor_count": "0",
-            "chains_used": [],
-            "milestones": [],
             "created_at": gl.message_raw['datetime'],
         }
         self.campaigns[project_id] = json.dumps(project)
@@ -84,15 +81,10 @@ class Genatio(gl.Contract):
             "project_id": project_id
         })
 
-    @gl.public.write
+    @gl.public.write.payable
     def fund_project(
         self,
-        wallet_address: str,
-        project_id: str,
-        amount_token: str,
-        amount_usd: u256,
-        chain: str,
-        tx_hash: str
+        project_id: str
     ) -> str:
         project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
         if not project:
@@ -100,47 +92,29 @@ class Genatio(gl.Contract):
         if project["status"] != "active":
             return json.dumps({"status": "error", "reason": "Project not accepting funds"})
 
-        project["raised_usd"] = str(u256(project["raised_usd"]) + u256(amount_usd))
+        amount = gl.message.value
+        if amount == u256(0):
+            return json.dumps({"status": "error", "reason": "No GEN sent"})
+
+        sender = gl.message.sender_address
+
+        # Transfer GEN directly to creator wallet
+        creator = gl.get_contract_at(Address(project["wallet"]))
+        creator.emit_transfer(value=amount, on="finalized")
+
+        # Update raised amount
+        project["raised_gen"] = str(u256(project.get("raised_gen", "0")) + amount)
         project["donor_count"] = str(u256(project["donor_count"]) + u256(1))
-        if chain not in project["chains_used"]:
-            project["chains_used"].append(chain)
 
         self.campaigns[project_id] = json.dumps(project)
         self.donations.append(json.dumps({
             "project_id": project_id,
-            "wallet": wallet_address,
-            "amount_token": amount_token,
-            "amount_usd": str(amount_usd),
-            "chain": chain,
-            "tx_hash": tx_hash
+            "wallet": str(sender),
+            "amount_gen": str(amount),
+            "timestamp": gl.message_raw['datetime']
         }))
 
-        return json.dumps({"status": "success"})
-
-    @gl.public.write
-    def flag_project(
-        self,
-        wallet_address: str,
-        project_id: str,
-        flag_reasons: str
-    ) -> str:
-        project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
-        if not project:
-            return json.dumps({"status": "error", "reason": "Project not found"})
-
-        flag_id = str(len(self.disputes) + 1)
-        self.disputes.append(json.dumps({
-            "id": flag_id,
-            "project_id": project_id,
-            "raised_by": wallet_address,
-            "flag_reasons": flag_reasons,
-            "status": "open"
-        }))
-
-        project["status"] = "disputed"
-        self.campaigns[project_id] = json.dumps(project)
-
-        return json.dumps({"status": "success", "flag_id": flag_id})
+        return json.dumps({"status": "success", "amount_gen": str(amount)})
 
     @gl.public.write
     def close_project(
@@ -161,113 +135,36 @@ class Genatio(gl.Contract):
         self.campaigns[project_id] = json.dumps(project)
         return json.dumps({"status": "success", "project_id": project_id})
 
+    # ─── DISPUTE CALLBACKS (called by GenatioDispute) ───
+
     @gl.public.write
-    def review_flag(
-        self,
-        wallet_address: str,
-        project_id: str
-    ) -> str:
-        # Extract storage to plain Python objects BEFORE the closure so cloudpickle
-        # never serialises storage slots (reading storage in nondet mode is unsupported)
-        c = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
-        if not c:
-            return json.dumps({"status": "error", "reason": "Project not found"})
-
-        f = None
-        flag_index = -1
-        for i in range(len(self.disputes)):
-            dd = json.loads(self.disputes[i])
-            if dd["project_id"] == project_id and dd["status"] == "open":
-                f = dd
-                flag_index = i
-                break
-
-        if not f:
-            return json.dumps({"status": "error", "reason": "No open flag found"})
-
-        if f["raised_by"] == wallet_address:
-            return json.dumps({"status": "error", "reason": "Cannot review your own flag"})
-
-        # Build URL components from the pre-extracted plain dict
-        parts = c['github_repo_url'].rstrip('/').split('/')
-        owner = parts[-2] if len(parts) >= 2 else ""
-        repo_name = parts[-1].replace(".git", "") if len(parts) >= 1 else ""
-        github_api_url = f"https://api.github.com/repos/{owner}/{repo_name}"
-        github_commits_url = f"https://api.github.com/repos/{owner}/{repo_name}/commits"
-
-        # Capture only plain Python values — no self references inside the closure
-        _c = c
-        _f = f
-        _github_api_url = github_api_url
-        _github_commits_url = github_commits_url
-
-        def resolve():
-            try:
-                github_data = gl.nondet.web.get(_github_api_url).body.decode("utf-8")
-            except:
-                github_data = "No data available"
-            try:
-                commits_data = gl.nondet.web.get(_github_commits_url).body.decode("utf-8")
-            except:
-                commits_data = "No data available"
-            return gl.nondet.exec_prompt(
-                f"""You are reviewing a flag raised against an open source project on Genatio.
-
-PROJECT DETAILS:
-Title: {_c['title']}
-Story: {_c['story']}
-Funding purpose: {_c['funding_purpose']}
-GitHub repo: {_c['github_repo_url']}
-Live URL: {_c.get('live_url', 'Not provided')}
-
-GITHUB DATA:
-Repo info: {github_data}
-Recent commits: {commits_data}
-
-FLAG REASONS RAISED:
-{_f['flag_reasons']}
-
-Check each flag reason against the evidence:
-- GitHub repo doesn't exist or is private → check private field and message in repo data
-- GitHub repo doesn't match project description → check if repo description/name matches title and story
-- Live URL doesn't load or shows unrelated content → check commits data for clues
-- Project story appears copied or AI-generated → check writing style and consistency
-- Commits look fake or artificially created → check commit frequency and patterns in commits data
-- Funding purpose is vague or misleading → check if funding purpose matches repo activity
-- README is empty or unrelated → check description field in repo data
-
-If the flag reasons are supported by evidence reply exactly: VALID - one sentence reason
-If the project appears legitimate and flag is unfounded reply exactly: INVALID - one sentence reason"""
-            )
-
-        def flag_validator_fn(leaders_res):
-            if not isinstance(leaders_res, gl.vm.Return):
-                return False
-            result = leaders_res.calldata.strip().upper()
-            return result.startswith("VALID") or result.startswith("INVALID")
-
-        resolution = gl.vm.run_nondet_unsafe(resolve, flag_validator_fn)
-
-        # Re-read storage fresh after consensus for the state update
+    def mark_disputed(self, project_id: str) -> str:
         project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
         if not project:
-            return json.dumps({"status": "error", "reason": "Project not found after consensus"})
-
-        if resolution.strip().upper().startswith("VALID"):
-            project["status"] = "rejected"
-            if project["wallet"] not in self.blacklist:
-                self.blacklist.append(project["wallet"])
-        else:
-            project["status"] = "active"
-
-        flag = f
-        flag["status"] = "resolved"
-        flag["resolution"] = resolution
-        self.disputes[flag_index] = json.dumps(flag)
-
+            return json.dumps({"status": "error", "reason": "Project not found"})
+        project["status"] = "disputed"
         self.campaigns[project_id] = json.dumps(project)
+        return json.dumps({"status": "success"})
 
-        return json.dumps({"status": "success", "resolution": resolution})
+    @gl.public.write
+    def reject_project(self, project_id: str, wallet_address: str) -> str:
+        project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
+        if not project:
+            return json.dumps({"status": "error", "reason": "Project not found"})
+        project["status"] = "rejected"
+        self.campaigns[project_id] = json.dumps(project)
+        if wallet_address not in self.blacklist:
+            self.blacklist.append(wallet_address)
+        return json.dumps({"status": "success"})
+
+    @gl.public.write
+    def restore_project(self, project_id: str) -> str:
+        project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
+        if not project:
+            return json.dumps({"status": "error", "reason": "Project not found"})
+        project["status"] = "active"
+        self.campaigns[project_id] = json.dumps(project)
+        return json.dumps({"status": "success"})
 
     # ─── VIEW METHODS ───
 
@@ -284,12 +181,12 @@ If the project appears legitimate and flag is unfounded reply exactly: INVALID -
 
     @gl.public.view
     def get_funders(self, project_id: str) -> str:
-        return json.dumps([json.loads(d) for d in self.donations if json.loads(d)["project_id"] == project_id])
-
-    @gl.public.view
-    def get_flag(self, project_id: str) -> str:
-        flags = [json.loads(d) for d in self.disputes if json.loads(d)["project_id"] == project_id]
-        return json.dumps(flags[0] if flags else None)
+        result = []
+        for d in self.donations:
+            parsed = json.loads(d)
+            if parsed["project_id"] == project_id:
+                result.append(parsed)
+        return json.dumps(result)
 
     @gl.public.view
     def get_blacklist(self) -> str:
