@@ -1,4 +1,4 @@
-# v0.2.20
+# v0.2.21
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
 import json
@@ -167,47 +167,65 @@ class Genatio(gl.Contract):
         wallet_address: str,
         project_id: str
     ) -> str:
-        # eq_principle FIRST — closure reads storage internally, no outer-scope storage reads before
+        # Extract storage to plain Python objects BEFORE the closure so cloudpickle
+        # never serialises storage slots (reading storage in nondet mode is unsupported)
+        c = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
+        if not c:
+            return json.dumps({"status": "error", "reason": "Project not found"})
+
+        f = None
+        flag_index = -1
+        for i in range(len(self.disputes)):
+            dd = json.loads(self.disputes[i])
+            if dd["project_id"] == project_id and dd["status"] == "open":
+                f = dd
+                flag_index = i
+                break
+
+        if not f:
+            return json.dumps({"status": "error", "reason": "No open flag found"})
+
+        if f["raised_by"] == wallet_address:
+            return json.dumps({"status": "error", "reason": "Cannot review your own flag"})
+
+        # Build URL components from the pre-extracted plain dict
+        parts = c['github_repo_url'].rstrip('/').split('/')
+        owner = parts[-2] if len(parts) >= 2 else ""
+        repo_name = parts[-1].replace(".git", "") if len(parts) >= 1 else ""
+        github_api_url = f"https://api.github.com/repos/{owner}/{repo_name}"
+        github_commits_url = f"https://api.github.com/repos/{owner}/{repo_name}/commits"
+
+        # Capture only plain Python values — no self references inside the closure
+        _c = c
+        _f = f
+        _github_api_url = github_api_url
+        _github_commits_url = github_commits_url
+
         def resolve():
-            c = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
-            if not c:
-                raise gl.vm.UserError("Project not found")
-            f = None
-            for i in range(len(self.disputes)):
-                dd = json.loads(self.disputes[i])
-                if dd["project_id"] == project_id and dd["status"] == "open":
-                    f = dd
-                    break
-            if not f:
-                raise gl.vm.UserError("No open flag found")
-            parts = c['github_repo_url'].rstrip('/').split('/')
-            owner = parts[-2] if len(parts) >= 2 else ""
-            repo = parts[-1].replace(".git", "") if len(parts) >= 1 else ""
-            github_api_url = f"https://api.github.com/repos/{owner}/{repo}"
             try:
-                github_data = gl.nondet.web.get(github_api_url).body.decode("utf-8")
+                github_data = gl.nondet.web.get(_github_api_url).body.decode("utf-8")
             except:
                 github_data = "No data available"
             try:
-                commits_data = gl.nondet.web.get(f"https://api.github.com/repos/{owner}/{repo}/commits").body.decode("utf-8")
+                commits_data = gl.nondet.web.get(_github_commits_url).body.decode("utf-8")
             except:
                 commits_data = "No data available"
             return gl.nondet.exec_prompt(
                 f"""You are reviewing a flag raised against an open source project on Genatio.
 
 PROJECT DETAILS:
-Title: {c['title']}
-Story: {c['story']}
-Funding purpose: {c['funding_purpose']}
-GitHub repo: {c['github_repo_url']}
-Live URL: {c.get('live_url', 'Not provided')}
+Title: {_c['title']}
+Story: {_c['story']}
+Funding purpose: {_c['funding_purpose']}
+GitHub repo: {_c['github_repo_url']}
+Live URL: {_c.get('live_url', 'Not provided')}
 
 GITHUB DATA:
 Repo info: {github_data}
 Recent commits: {commits_data}
 
 FLAG REASONS RAISED:
-{f['flag_reasons']}
+{_f['flag_reasons']}
 
 Check each flag reason against the evidence:
 - GitHub repo doesn't exist or is private → check private field and message in repo data
@@ -221,6 +239,7 @@ Check each flag reason against the evidence:
 If the flag reasons are supported by evidence reply exactly: VALID - one sentence reason
 If the project appears legitimate and flag is unfounded reply exactly: INVALID - one sentence reason"""
             )
+
         def flag_validator_fn(leaders_res):
             if not isinstance(leaders_res, gl.vm.Return):
                 return False
@@ -229,25 +248,10 @@ If the project appears legitimate and flag is unfounded reply exactly: INVALID -
 
         resolution = gl.vm.run_nondet_unsafe(resolve, flag_validator_fn)
 
-        # ALL storage reads and writes AFTER eq_principle
+        # Re-read storage fresh after consensus for the state update
         project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
-        flag = None
-        flag_index = -1
-        for i in range(len(self.disputes)):
-            d = json.loads(self.disputes[i])
-            if d["project_id"] == project_id and d["status"] == "open":
-                flag = d
-                flag_index = i
-                break
-
-        if not project or not flag:
-            return json.dumps({"status": "error", "reason": "Not found"})
-
-        if flag_index < 0:
-            return json.dumps({"status": "error", "reason": "No open flag found"})
-
-        if flag["raised_by"] == wallet_address:
-            return json.dumps({"status": "error", "reason": "Cannot review your own flag"})
+        if not project:
+            return json.dumps({"status": "error", "reason": "Project not found after consensus"})
 
         if resolution.strip().upper().startswith("VALID"):
             project["status"] = "rejected"
@@ -256,6 +260,7 @@ If the project appears legitimate and flag is unfounded reply exactly: INVALID -
         else:
             project["status"] = "active"
 
+        flag = f
         flag["status"] = "resolved"
         flag["resolution"] = resolution
         self.disputes[flag_index] = json.dumps(flag)
