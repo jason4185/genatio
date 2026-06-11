@@ -197,8 +197,8 @@ class Genatio(gl.Contract):
 
 PROJECT DETAILS:
 Title: {c['title']}
-Story: {c['story'][:500]}
-Funding purpose: {c['funding_purpose'][:200]}
+Story: {c['story']}
+Funding purpose: {c['funding_purpose']}
 GitHub repo: {c['github_repo_url']}
 Live URL: {c.get('live_url', 'Not provided')}
 
