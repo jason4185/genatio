@@ -122,7 +122,7 @@ class Genatio(gl.Contract):
         self,
         wallet_address: str,
         project_id: str,
-        flag_reason: str
+        flag_reasons: str
     ) -> str:
         project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
         if not project:
@@ -133,7 +133,7 @@ class Genatio(gl.Contract):
             "id": flag_id,
             "project_id": project_id,
             "raised_by": wallet_address,
-            "flag_reason": flag_reason,
+            "flag_reasons": flag_reasons,
             "status": "open"
         }))
 
@@ -193,31 +193,33 @@ class Genatio(gl.Contract):
             except:
                 commits_data = "No data available"
             return gl.nondet.exec_prompt(
-                f"""IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
-
-You are reviewing a flag raised against an open source grant project on Genatio.
+                f"""You are reviewing a flag raised against an open source project on Genatio.
 
 PROJECT DETAILS:
 Title: {c['title']}
-Story: {c['story']}
-Funding purpose: {c['funding_purpose']}
+Story: {c['story'][:500]}
+Funding purpose: {c['funding_purpose'][:200]}
 GitHub repo: {c['github_repo_url']}
+Live URL: {c.get('live_url', 'Not provided')}
 
 GITHUB DATA:
 Repo info: {github_data}
 Recent commits: {commits_data}
 
-FLAG:
-Raised by: {f['raised_by']}
-Flag reason: {f['flag_reason']}
+FLAG REASONS RAISED:
+{f['flag_reasons']}
 
-Based on all the evidence above:
-1. Does the GitHub repo match what the project claims?
-2. Does the flag reason raise valid concerns that are supported by the GitHub data?
-3. Is there a clear contradiction between the project story and what the repo actually shows?
+Check each flag reason against the evidence:
+- GitHub repo doesn't exist or is private → check private field and message in repo data
+- GitHub repo doesn't match project description → check if repo description/name matches title and story
+- Live URL doesn't load or shows unrelated content → check commits data for clues
+- Project story appears copied or AI-generated → check writing style and consistency
+- Commits look fake or artificially created → check commit frequency and patterns in commits data
+- Funding purpose is vague or misleading → check if funding purpose matches repo activity
+- README is empty or unrelated → check description field in repo data
 
-If the flag is valid and the project appears fraudulent reply exactly: VALID - one sentence reason
-If the project appears legitimate and the flag is unfounded reply exactly: INVALID - one sentence reason"""
+If the flag reasons are supported by evidence reply exactly: VALID - one sentence reason
+If the project appears legitimate and flag is unfounded reply exactly: INVALID - one sentence reason"""
             )
         def flag_validator_fn(leaders_res):
             if not isinstance(leaders_res, gl.vm.Return):
@@ -330,7 +332,7 @@ SCORING RULES:
 - Missing data for any factor means 0pts for THAT FACTOR ONLY — not 0 for the entire project
 - Never guess or infer data that is not explicitly present in the fetched content
 - Every factor is independent — one missing factor NEVER affects other factors or the final score
-- The final normalized score is ALWAYS round((total/145)*100) — never override this with 0
+- The final normalized score is ALWAYS round((total/160)*100) — never override this with 0
 
 IMPORTANT: You have been provided with pre-fetched data below. Do not attempt to fetch any URLs yourself. Score only based on the data provided. If data shows "No data available" for a factor score it 0pts.
 Be thorough, honest, and strict. Follow every step exactly and in order.
@@ -400,8 +402,17 @@ Loads with real content = 15pts
 Loads but sparse = 7pts
 Not provided or does not load = 0pts
 
-Add all factor scores. Maximum = 145pts.
-Normalize to 100: round((total / 145) * 100).
+Factor 10 — Project consistency:
+Cross-check the following:
+- Does the GitHub repo name and description match the project title and story?
+- Does the live URL content match what the creator claims to be building?
+- Is there a clear connection between the funding purpose and what the GitHub repo shows?
+All consistent = 15pts
+Minor inconsistencies = 5pts
+Major mismatch (repo and story describe completely different projects) = 0pts
+
+Add all factor scores. Maximum = 160pts.
+Normalize to 100: round((total / 160) * 100).
 
 === FINAL REPLY ===
 Reply with a JSON object only, no other text:
