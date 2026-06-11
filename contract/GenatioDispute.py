@@ -140,9 +140,12 @@ If the project appears legitimate reply exactly: INVALID - one sentence reason""
             main = gl.get_contract_at(Address(self.main_contract))
             main.emit(on="accepted").restore_project(project_id)
 
-        if dispute_index >= 0 and dispute_index < len(disputes):
-            disputes[dispute_index]["status"] = "resolved"
-            disputes[dispute_index]["resolution"] = resolution
+        disputes = json.loads(self.disputes)
+        for i, d in enumerate(disputes):
+            if d["project_id"] == project_id and d["status"] == "open":
+                disputes[i]["status"] = "resolved"
+                disputes[i]["resolution"] = resolution
+                break
         self.disputes = json.dumps(disputes)
 
         return json.dumps({"status": "success", "resolution": resolution})

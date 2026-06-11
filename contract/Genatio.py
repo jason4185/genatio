@@ -153,8 +153,8 @@ class Genatio(gl.Contract):
             return json.dumps({"status": "error", "reason": "Project not found"})
         project["status"] = "rejected"
         self.campaigns[project_id] = json.dumps(project)
-        if wallet_address not in self.blacklist:
-            self.blacklist.append(wallet_address)
+        if project["wallet"] not in self.blacklist:
+            self.blacklist.append(project["wallet"])
         return json.dumps({"status": "success"})
 
     @gl.public.write
