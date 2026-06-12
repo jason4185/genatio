@@ -3,13 +3,6 @@
 from genlayer import *
 import json
 
-@gl.evm.contract_interface
-class _EOARecipient:
-    class View:
-        pass
-    class Write:
-        pass
-
 class Genatio(gl.Contract):
     campaigns: TreeMap[str, str]
     donations: DynArray[str]
@@ -137,7 +130,7 @@ class Genatio(gl.Contract):
         self.campaigns[project_id] = json.dumps(project)
 
         # Now emit_transfer — creator pulls their own funds
-        _EOARecipient(Address(project["wallet"])).emit_transfer(value=amount, on='finalized')
+        gl.get_contract_at(Address(project["wallet"])).emit_transfer(value=amount, on='finalized')
 
         return json.dumps({"status": "success", "amount_gen": str(amount)})
 
