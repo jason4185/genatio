@@ -153,15 +153,6 @@ class Genatio(gl.Contract):
     # ─── DISPUTE CALLBACKS (called by GenatioDispute) ───
 
     @gl.public.write
-    def mark_disputed(self, project_id: str) -> str:
-        project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
-        if not project:
-            return json.dumps({"status": "error", "reason": "Project not found"})
-        project["status"] = "disputed"
-        self.campaigns[project_id] = json.dumps(project)
-        return json.dumps({"status": "success"})
-
-    @gl.public.write
     def reject_project(self, project_id: str, wallet_address: str) -> str:
         project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
         if not project:
