@@ -112,7 +112,7 @@ If the project appears legitimate and flag is unfounded reply exactly: INVALID -
                 blacklist.append(project["wallet"])
                 self.blacklist = json.dumps(blacklist)
             main_contract = gl.get_contract_at(Address(self.main_contract))
-            main_contract.emit(on="finalized").reject_project(project_id, project["wallet"])
+            main_contract.emit(on="finalized").reject_project(project_id)
             return json.dumps({"status": "success", "resolution": "VALID", "reason": resolution})
         else:
             return json.dumps({"status": "success", "resolution": "INVALID", "reason": resolution})

@@ -15,9 +15,11 @@ class Genatio(gl.Contract):
     donations: DynArray[str]
     blacklist: DynArray[str]
     dispute_contract: str
+    owner: str
 
     def __init__(self):
         self.dispute_contract = ""
+        self.owner = str(gl.message.sender_address)
 
     @gl.public.write
     def submit_project(
@@ -147,13 +149,17 @@ class Genatio(gl.Contract):
 
     @gl.public.write
     def set_dispute_contract(self, address: str) -> str:
+        if str(gl.message.sender_address) != self.owner:
+            return json.dumps({"status": "error", "reason": "Unauthorized"})
         self.dispute_contract = address
         return json.dumps({"status": "success", "dispute_contract": address})
 
     # ─── DISPUTE CALLBACKS (called by GenatioDispute) ───
 
     @gl.public.write
-    def reject_project(self, project_id: str, wallet_address: str) -> str:
+    def reject_project(self, project_id: str) -> str:
+        if str(gl.message.sender_address) != self.dispute_contract:
+            return json.dumps({"status": "error", "reason": "Unauthorized"})
         project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
         if not project:
             return json.dumps({"status": "error", "reason": "Project not found"})
@@ -165,6 +171,8 @@ class Genatio(gl.Contract):
 
     @gl.public.write
     def restore_project(self, project_id: str) -> str:
+        if str(gl.message.sender_address) != self.dispute_contract:
+            return json.dumps({"status": "error", "reason": "Unauthorized"})
         project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
         if not project:
             return json.dumps({"status": "error", "reason": "Project not found"})
