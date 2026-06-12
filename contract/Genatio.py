@@ -105,7 +105,7 @@ class Genatio(gl.Contract):
         sender = gl.message.sender_address
 
         # Record donation — GEN stays in contract balance
-        project["raised_gen"] = str(u256(project.get("raised_gen", "0")) + amount)
+        project["raised_gen"] = str(u256(project.get("raised_gen", "0")) + u256(amount))
         project["donor_count"] = str(u256(project["donor_count"]) + u256(1))
         self.campaigns[project_id] = json.dumps(project)
 
