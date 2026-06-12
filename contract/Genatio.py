@@ -22,7 +22,6 @@ class Genatio(gl.Contract):
     @gl.public.write
     def submit_project(
         self,
-        wallet_address: str,
         title: str,
         story: str,
         goal_gen: u256,
@@ -31,11 +30,12 @@ class Genatio(gl.Contract):
         live_url: str,
         funding_purpose: str
     ) -> str:
+        wallet_address = str(gl.message.sender_address)
+
         if duration_days != u256(7) and duration_days != u256(14) and duration_days != u256(30):
             return json.dumps({"status": "rejected", "reason": "Invalid duration. Choose 7, 14, or 30 days"})
 
         result = self._verify_campaign(
-            wallet_address,
             title,
             story,
             github_repo_url,
@@ -129,9 +129,9 @@ class Genatio(gl.Contract):
     @gl.public.write
     def close_project(
         self,
-        wallet_address: str,
         project_id: str
     ) -> str:
+        wallet_address = str(gl.message.sender_address)
         project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
         if not project:
             return json.dumps({"status": "error", "reason": "Project not found"})
@@ -202,7 +202,6 @@ class Genatio(gl.Contract):
 
     def _verify_campaign(
         self,
-        wallet_address: str,
         title: str,
         story: str,
         github_repo_url: str,
