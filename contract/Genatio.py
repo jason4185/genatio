@@ -53,6 +53,11 @@ class Genatio(gl.Contract):
         if len(active) >= 2:
             return json.dumps({"status": "rejected", "reason": "You already have 2 active projects"})
 
+        for k, v in self.campaigns.items():
+            existing = json.loads(v)
+            if existing["title"].lower() == title.lower():
+                return json.dumps({"status": "rejected", "reason": "Project title already exists. Choose a unique title."})
+
         try:
             score = u256(int(result.strip()))
             if score > u256(100):
@@ -192,6 +197,14 @@ class Genatio(gl.Contract):
     @gl.public.view
     def get_project(self, project_id: str) -> str:
         return json.dumps(json.loads(self.campaigns[project_id])) if project_id in self.campaigns else json.dumps(None)
+
+    @gl.public.view
+    def get_project_by_title(self, title: str) -> str:
+        for k, v in self.campaigns.items():
+            project = json.loads(v)
+            if project["title"].lower() == title.lower():
+                return json.dumps(project)
+        return json.dumps(None)
 
     @gl.public.view
     def get_funders(self, project_id: str) -> str:

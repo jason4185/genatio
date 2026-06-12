@@ -16,24 +16,25 @@ class GenatioDispute(gl.Contract):
     @gl.public.write
     def flag_project(
         self,
-        project_id: str,
+        project_title: str,
         flag_reasons: str
     ) -> str:
         flagger = str(gl.message.sender_address)
 
-        # Check no open flag already exists
-        disputes = json.loads(self.disputes)
-        existing = [d for d in disputes if d["project_id"] == project_id and d["status"] == "open"]
-        if existing:
-            return json.dumps({"status": "error", "reason": "Flag already open for this project"})
-
         # Read project data from main contract BEFORE nondet closure
         main = gl.get_contract_at(Address(self.main_contract))
-        project_raw = main.view().get_project(project_id)
+        project_raw = main.view().get_project_by_title(project_title)
         project = json.loads(project_raw) if project_raw else None
-
         if not project:
             return json.dumps({"status": "error", "reason": "Project not found"})
+        project_id = project["id"]
+
+        # Check no flag already exists for this project
+        disputes = json.loads(self.disputes)
+        existing = [d for d in disputes if d["project_id"] == project_id]
+        if existing:
+            return json.dumps({"status": "error", "reason": "Flag already raised for this project"})
+
         if project["wallet"] == flagger:
             return json.dumps({"status": "error", "reason": "Cannot flag your own project"})
 
