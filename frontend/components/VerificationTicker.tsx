@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 
 interface TickerItem {
@@ -24,7 +24,7 @@ const TICKER_ITEMS: TickerItem[] = [
 
 function TickerRow({ items }: { items: TickerItem[] }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "0", flexShrink: 0 }}>
+    <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
       {items.map((item, i) => (
         <div
           key={i}
@@ -33,7 +33,7 @@ function TickerRow({ items }: { items: TickerItem[] }) {
             alignItems: "center",
             gap: "0.5rem",
             padding: "0 2rem",
-            borderRight: "1px solid #1A1D2E",
+            borderRight: "1px solid #1E2D45",
             whiteSpace: "nowrap",
           }}
         >
@@ -41,46 +41,30 @@ function TickerRow({ items }: { items: TickerItem[] }) {
             style={{
               fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
               fontSize: "0.8125rem",
-              color: "#8B949E",
+              color: "#8899AA",
               letterSpacing: "0.02em",
             }}
           >
             {item.name}
           </span>
+          <span style={{ color: "#1E2D45" }}>·</span>
           <span
             style={{
               fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
               fontSize: "0.8125rem",
-              color: "#8B949E",
+              color: "#8899AA",
             }}
           >
-            ·
+            Score {item.score}
           </span>
+          <span style={{ color: "#1E2D45" }}>·</span>
           <span
             style={{
               fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-              fontSize: "0.8125rem",
-              color: "#8B949E",
-            }}
-          >
-            {item.score}
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-              fontSize: "0.8125rem",
-              color: "#8B949E",
-            }}
-          >
-            ·
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-              fontSize: "0.8125rem",
-              fontWeight: 600,
-              color: item.status === "ACTIVE" ? "#E8FF47" : "#FF6B35",
-              letterSpacing: "0.05em",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              color: item.status === "ACTIVE" ? "#27AE60" : "#EB5757",
+              letterSpacing: "0.06em",
             }}
           >
             {item.status}
@@ -96,18 +80,13 @@ export default function VerificationTicker() {
   const doubled = [...TICKER_ITEMS, ...TICKER_ITEMS];
 
   return (
-    <div
-      style={{
-        marginTop: "2.5rem",
-        maxWidth: "820px",
-        width: "100%",
-      }}
-    >
-      {/* Container pill */}
+    <div style={{ width: "100%" }}>
       <div
         style={{
-          backgroundColor: "#0D1117",
-          border: "1px solid #1A1D2E",
+          backgroundColor: "rgba(12,18,32,0.7)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid #1E2D45",
           borderRadius: "100px",
           padding: "0.625rem 0",
           overflow: "hidden",
@@ -116,7 +95,7 @@ export default function VerificationTicker() {
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
-        {/* LIVE badge — left anchor */}
+        {/* LIVE badge */}
         <div
           style={{
             position: "absolute",
@@ -127,10 +106,10 @@ export default function VerificationTicker() {
             display: "flex",
             alignItems: "center",
             gap: "0.375rem",
-            backgroundColor: "#080B14",
+            backgroundColor: "#060B18",
             padding: "0.25rem 0.625rem",
             borderRadius: "100px",
-            border: "1px solid #1A1D2E",
+            border: "1px solid rgba(45,156,219,0.25)",
           }}
         >
           <span
@@ -138,7 +117,7 @@ export default function VerificationTicker() {
               width: "6px",
               height: "6px",
               borderRadius: "50%",
-              backgroundColor: "#E8FF47",
+              backgroundColor: "#2D9CDB",
               display: "block",
               animation: "pulse-live 1.4s ease-in-out infinite",
             }}
@@ -148,7 +127,7 @@ export default function VerificationTicker() {
               fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
               fontSize: "0.6875rem",
               fontWeight: 700,
-              color: "#E8FF47",
+              color: "#2D9CDB",
               letterSpacing: "0.1em",
             }}
           >
@@ -163,9 +142,8 @@ export default function VerificationTicker() {
             left: 0,
             top: 0,
             bottom: 0,
-            width: "120px",
-            background:
-              "linear-gradient(to right, #0D1117 0%, transparent 100%)",
+            width: "110px",
+            background: "linear-gradient(to right, rgba(6,11,24,1) 0%, transparent 100%)",
             zIndex: 5,
             pointerEvents: "none",
           }}
@@ -178,8 +156,7 @@ export default function VerificationTicker() {
             top: 0,
             bottom: 0,
             width: "80px",
-            background:
-              "linear-gradient(to left, #0D1117 0%, transparent 100%)",
+            background: "linear-gradient(to left, rgba(6,11,24,1) 0%, transparent 100%)",
             zIndex: 5,
             pointerEvents: "none",
           }}
@@ -187,14 +164,14 @@ export default function VerificationTicker() {
 
         {/* Scrolling content */}
         <motion.div
-          style={{ display: "flex", paddingLeft: "140px" }}
+          style={{ display: "flex", paddingLeft: "130px" }}
           animate={{ x: paused ? undefined : [0, "-50%"] }}
           transition={
             paused
               ? { duration: 0 }
               : {
                   x: {
-                    duration: 28,
+                    duration: 30,
                     repeat: Infinity,
                     ease: "linear",
                     repeatType: "loop",

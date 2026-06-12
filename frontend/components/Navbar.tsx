@@ -28,10 +28,10 @@ export default function Navbar() {
         right: 0,
         zIndex: 50,
         transition: "all 0.3s ease",
-        borderBottom: scrolled ? "1px solid rgba(26,29,46,0.8)" : "1px solid transparent",
-        backgroundColor: scrolled ? "rgba(8,11,20,0.85)" : "transparent",
-        backdropFilter: scrolled ? "blur(16px)" : "none",
-        WebkitBackdropFilter: scrolled ? "blur(16px)" : "none",
+        borderBottom: scrolled ? "1px solid rgba(30,45,69,0.8)" : "1px solid transparent",
+        backgroundColor: scrolled ? "rgba(6,11,24,0.88)" : "transparent",
+        backdropFilter: scrolled ? "blur(20px)" : "none",
+        WebkitBackdropFilter: scrolled ? "blur(20px)" : "none",
       }}
     >
       <nav
@@ -49,24 +49,36 @@ export default function Navbar() {
         <a
           href="/"
           style={{
-            fontFamily: "'Clash Display', var(--font-inter), system-ui, sans-serif",
+            fontFamily: "var(--font-jakarta), system-ui, sans-serif",
             fontSize: "1.375rem",
-            fontWeight: 600,
-            color: "#F8F9FA",
+            fontWeight: 700,
+            color: "#F0F4FF",
             textDecoration: "none",
-            letterSpacing: "-0.02em",
+            letterSpacing: "-0.03em",
+            display: "flex",
+            alignItems: "baseline",
+            gap: "1px",
           }}
         >
-          <span style={{ color: "#E8FF47" }}>G</span>enatio
+          <span style={{ color: "#2D9CDB" }}>G</span>
+          <span>enatio</span>
+          <span
+            style={{
+              width: "5px",
+              height: "5px",
+              borderRadius: "50%",
+              backgroundColor: "#2D9CDB",
+              display: "inline-block",
+              marginLeft: "2px",
+              marginBottom: "2px",
+              flexShrink: 0,
+            }}
+          />
         </a>
 
         {/* Desktop links */}
         <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "2rem",
-          }}
+          style={{ display: "flex", alignItems: "center", gap: "2rem" }}
           className="hidden md:flex"
         >
           {navLinks.map((link) => (
@@ -74,46 +86,34 @@ export default function Navbar() {
               key={link.label}
               href={link.href}
               style={{
-                fontFamily: "var(--font-inter), system-ui, sans-serif",
+                fontFamily: "var(--font-jakarta), system-ui, sans-serif",
                 fontSize: "0.9rem",
                 fontWeight: 500,
-                color: "#8B949E",
+                color: "#8899AA",
                 textDecoration: "none",
                 transition: "color 0.2s ease",
               }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.color = "#F8F9FA")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.color = "#8B949E")
-              }
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#F0F4FF")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#8899AA")}
             >
               {link.label}
             </a>
           ))}
+
           <motion.button
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.97 }}
             style={{
-              fontFamily: "var(--font-inter), system-ui, sans-serif",
+              fontFamily: "var(--font-jakarta), system-ui, sans-serif",
               fontSize: "0.875rem",
-              fontWeight: 500,
-              color: "#E8FF47",
-              background: "transparent",
-              border: "1px solid #E8FF47",
-              borderRadius: "6px",
+              fontWeight: 600,
+              color: "#F0F4FF",
+              backgroundColor: "#2D9CDB",
+              border: "none",
+              borderRadius: "8px",
               padding: "0.5rem 1.125rem",
               cursor: "pointer",
-              transition: "background 0.2s ease, color 0.2s ease",
-              letterSpacing: "0.01em",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#E8FF47";
-              e.currentTarget.style.color = "#080B14";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
-              e.currentTarget.style.color = "#E8FF47";
+              letterSpacing: "-0.01em",
             }}
           >
             Connect Wallet
@@ -127,7 +127,7 @@ export default function Navbar() {
           style={{
             background: "transparent",
             border: "none",
-            color: "#F8F9FA",
+            color: "#F0F4FF",
             cursor: "pointer",
             padding: "0.25rem",
           }}
@@ -146,9 +146,9 @@ export default function Navbar() {
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
             style={{
-              backgroundColor: "rgba(8,11,20,0.97)",
-              backdropFilter: "blur(16px)",
-              borderTop: "1px solid #1A1D2E",
+              backgroundColor: "rgba(6,11,24,0.97)",
+              backdropFilter: "blur(20px)",
+              borderTop: "1px solid #1E2D45",
               overflow: "hidden",
             }}
             className="md:hidden"
@@ -167,13 +167,13 @@ export default function Navbar() {
                   href={link.href}
                   onClick={() => setMenuOpen(false)}
                   style={{
-                    fontFamily: "var(--font-inter), system-ui, sans-serif",
+                    fontFamily: "var(--font-jakarta), system-ui, sans-serif",
                     fontSize: "1rem",
                     fontWeight: 500,
-                    color: "#8B949E",
+                    color: "#8899AA",
                     textDecoration: "none",
                     padding: "0.5rem 0",
-                    borderBottom: "1px solid #1A1D2E",
+                    borderBottom: "1px solid #1E2D45",
                   }}
                 >
                   {link.label}
@@ -181,13 +181,13 @@ export default function Navbar() {
               ))}
               <button
                 style={{
-                  fontFamily: "var(--font-inter), system-ui, sans-serif",
+                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
                   fontSize: "0.9rem",
-                  fontWeight: 500,
-                  color: "#E8FF47",
-                  background: "transparent",
-                  border: "1px solid #E8FF47",
-                  borderRadius: "6px",
+                  fontWeight: 600,
+                  color: "#F0F4FF",
+                  backgroundColor: "#2D9CDB",
+                  border: "none",
+                  borderRadius: "8px",
                   padding: "0.625rem 1.25rem",
                   cursor: "pointer",
                   marginTop: "0.25rem",

@@ -15,7 +15,6 @@ export default function FundingProgress({ raised, goal }: FundingProgressProps) 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -34,8 +33,8 @@ export default function FundingProgress({ raised, goal }: FundingProgressProps) 
       <div
         style={{
           width: "100%",
-          height: "4px",
-          backgroundColor: "#1A1D2E",
+          height: "3px",
+          backgroundColor: "#1E2D45",
           borderRadius: "2px",
           overflow: "hidden",
         }}
@@ -44,10 +43,10 @@ export default function FundingProgress({ raised, goal }: FundingProgressProps) 
           style={{
             height: "100%",
             width: `${width}%`,
-            backgroundColor: "#E8FF47",
+            background: "linear-gradient(90deg, #2D9CDB, #00C6FF)",
             borderRadius: "2px",
             transition: "width 1.2s cubic-bezier(0.4, 0, 0.2, 1)",
-            boxShadow: "0 0 8px rgba(232,255,71,0.4)",
+            boxShadow: "0 0 8px rgba(45,156,219,0.6)",
           }}
         />
       </div>

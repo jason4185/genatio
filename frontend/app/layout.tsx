@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import AnimatedBackground from "@/components/AnimatedBackground";
 
-const inter = Inter({
-  variable: "--font-inter",
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
   display: "swap",
 });
 
@@ -34,20 +35,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <link
-          rel="preconnect"
-          href="https://api.fontshare.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          rel="stylesheet"
-          href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap"
-        />
-      </head>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased min-h-screen`}
-        style={{ backgroundColor: "#080B14", color: "#F8F9FA" }}
+        className={`${jakarta.variable} ${jetbrainsMono.variable} antialiased min-h-screen`}
+        style={{ backgroundColor: "#060B18", color: "#F0F4FF" }}
       >
         <AnimatedBackground />
         {children}

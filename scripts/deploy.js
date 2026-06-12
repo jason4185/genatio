@@ -1,1 +1,0 @@
-// Genatio deploy script
