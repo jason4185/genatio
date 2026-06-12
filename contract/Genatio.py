@@ -60,7 +60,7 @@ class Genatio(gl.Contract):
         except:
             score = u256(0)
 
-        if u256(score) >= u256(65):
+        if u256(score) >= u256(40):
             status = "active"
         else:
             return json.dumps({"status": "rejected", "score": str(score)})
@@ -366,7 +366,7 @@ Reply with a JSON object only, no other text:
 
             if (repo_not_found or repo_is_private) and leader_score >= 85:
                 return False
-            if repo_not_found and leader_score >= 65:
+            if repo_not_found and leader_score >= 40:
                 return False
             if leader_score >= 85 and not recent_commits and not has_license:
                 return False
