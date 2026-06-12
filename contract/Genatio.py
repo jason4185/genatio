@@ -70,7 +70,8 @@ class Genatio(gl.Contract):
         else:
             return json.dumps({"status": "rejected", "score": str(score)})
 
-        project_id = str(len([k for k, v in self.campaigns.items()]) + 1)
+        existing_ids = [int(k) for k in self.campaigns.keys()]
+        project_id = str(max(existing_ids) + 1 if existing_ids else 1)
 
         project = {
             "id": project_id,
