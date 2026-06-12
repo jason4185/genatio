@@ -3,6 +3,13 @@
 from genlayer import *
 import json
 
+@gl.evm.contract_interface
+class _EOARecipient:
+    class View:
+        pass
+    class Write:
+        pass
+
 class Genatio(gl.Contract):
     campaigns: TreeMap[str, str]
     donations: DynArray[str]
@@ -97,7 +104,10 @@ class Genatio(gl.Contract):
 
         sender = gl.message.sender_address
 
-        # Record donation — GEN stays in contract balance
+        # Forward GEN directly to creator wallet
+        _EOARecipient(Address(project["wallet"])).emit_transfer(value=u256(amount), on='finalized')
+
+        # Record donation
         project["raised_gen"] = str(u256(project.get("raised_gen", "0")) + u256(amount))
         project["donor_count"] = str(u256(project["donor_count"]) + u256(1))
         self.campaigns[project_id] = json.dumps(project)
@@ -108,29 +118,6 @@ class Genatio(gl.Contract):
             "amount_gen": str(amount),
             "timestamp": gl.message_raw['datetime']
         }))
-
-        return json.dumps({"status": "success", "amount_gen": str(amount)})
-
-    @gl.public.write
-    def claim_funds(self, project_id: str) -> str:
-        project_data = self.campaigns[project_id] if project_id in self.campaigns else None
-        if not project_data:
-            return json.dumps({"status": "error", "reason": "Project not found"})
-        project = json.loads(project_data)
-
-        if str(gl.message.sender_address) != project["wallet"]:
-            return json.dumps({"status": "error", "reason": "Not your project"})
-
-        amount = u256(project.get("raised_gen", "0"))
-        if amount == u256(0):
-            return json.dumps({"status": "error", "reason": "No funds to claim"})
-
-        # Clear first to prevent reentrancy
-        project["raised_gen"] = "0"
-        self.campaigns[project_id] = json.dumps(project)
-
-        # Now emit_transfer — creator pulls their own funds
-        gl.get_contract_at(Address(project["wallet"])).emit_transfer(value=amount, on='finalized')
 
         return json.dumps({"status": "success", "amount_gen": str(amount)})
 
