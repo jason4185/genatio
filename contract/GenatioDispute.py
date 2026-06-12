@@ -63,8 +63,9 @@ class GenatioDispute(gl.Contract):
             except:
                 commits_data = "No data available"
 
-            return gl.nondet.exec_prompt(
-                f"""You are reviewing a flag raised against an open source project on Genatio.
+            try:
+                result = gl.nondet.exec_prompt(
+                    f"""You are reviewing a flag raised against an open source project on Genatio.
 
 PROJECT DETAILS:
 Title: {project_title}
@@ -82,7 +83,10 @@ FLAG REASONS RAISED:
 Check each flag reason against the evidence from GitHub data.
 If the flag reasons are supported by evidence reply exactly: VALID - one sentence reason
 If the project appears legitimate and flag is unfounded reply exactly: INVALID - one sentence reason"""
-            )
+                )
+                return str(result).strip() if result else "INVALID - Unable to evaluate"
+            except:
+                return "INVALID - Unable to evaluate due to error"
 
         def flag_validator_fn(leaders_res):
             if not isinstance(leaders_res, gl.vm.Return):
