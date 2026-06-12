@@ -107,7 +107,7 @@ class Genatio(gl.Contract):
         sender = gl.message.sender_address
 
         # Transfer GEN directly to creator wallet (EOA-safe via EthSend)
-        _EOARecipient(Address(project["wallet"])).emit_transfer(value=amount)
+        _EOARecipient(Address(project["wallet"])).emit_transfer(value=amount, on='finalized')
 
         # Update raised amount
         project["raised_gen"] = str(u256(project.get("raised_gen", "0")) + amount)
