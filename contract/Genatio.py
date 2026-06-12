@@ -119,7 +119,12 @@ class Genatio(gl.Contract):
             "timestamp": gl.message_raw['datetime']
         }))
 
-        return json.dumps({"status": "success", "amount_gen": str(amount)})
+        goal_reached = u256(project.get("raised_gen", "0")) >= u256(project.get("goal_gen", "0"))
+        return json.dumps({
+            "status": "success",
+            "amount_gen": str(amount),
+            "goal_reached": goal_reached
+        })
 
     @gl.public.write
     def close_project(
