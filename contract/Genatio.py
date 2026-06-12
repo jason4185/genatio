@@ -1,4 +1,4 @@
-# v0.3.1
+# v0.4.0
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
 import json
@@ -90,13 +90,11 @@ class Genatio(gl.Contract):
         })
 
     @gl.public.write.payable
-    def fund_project(
-        self,
-        project_id: str
-    ) -> str:
-        project = json.loads(self.campaigns[project_id]) if project_id in self.campaigns else None
-        if not project:
+    def fund_project(self, project_id: str) -> str:
+        project_data = self.campaigns[project_id] if project_id in self.campaigns else None
+        if not project_data:
             return json.dumps({"status": "error", "reason": "Project not found"})
+        project = json.loads(project_data)
         if project["status"] != "active":
             return json.dumps({"status": "error", "reason": "Project not accepting funds"})
 
@@ -106,20 +104,40 @@ class Genatio(gl.Contract):
 
         sender = gl.message.sender_address
 
-        # Transfer GEN directly to creator wallet (EOA-safe via EthSend)
-        _EOARecipient(Address(project["wallet"])).emit_transfer(value=amount, on='finalized')
-
-        # Update raised amount
+        # Record donation — GEN stays in contract balance
         project["raised_gen"] = str(u256(project.get("raised_gen", "0")) + amount)
         project["donor_count"] = str(u256(project["donor_count"]) + u256(1))
-
         self.campaigns[project_id] = json.dumps(project)
+
         self.donations.append(json.dumps({
             "project_id": project_id,
             "wallet": str(sender),
             "amount_gen": str(amount),
             "timestamp": gl.message_raw['datetime']
         }))
+
+        return json.dumps({"status": "success", "amount_gen": str(amount)})
+
+    @gl.public.write
+    def claim_funds(self, project_id: str) -> str:
+        project_data = self.campaigns[project_id] if project_id in self.campaigns else None
+        if not project_data:
+            return json.dumps({"status": "error", "reason": "Project not found"})
+        project = json.loads(project_data)
+
+        if str(gl.message.sender_address) != project["wallet"]:
+            return json.dumps({"status": "error", "reason": "Not your project"})
+
+        amount = u256(project.get("raised_gen", "0"))
+        if amount == u256(0):
+            return json.dumps({"status": "error", "reason": "No funds to claim"})
+
+        # Clear first to prevent reentrancy
+        project["raised_gen"] = "0"
+        self.campaigns[project_id] = json.dumps(project)
+
+        # Now emit_transfer — creator pulls their own funds
+        _EOARecipient(Address(project["wallet"])).emit_transfer(value=amount, on='finalized')
 
         return json.dumps({"status": "success", "amount_gen": str(amount)})
 
