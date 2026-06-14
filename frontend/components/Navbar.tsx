@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ThemeToggle } from "./ThemeToggle";
@@ -14,12 +14,12 @@ const navLinks = [
   { label: "Submit Project", href: "/submit" },
 ];
 
-const menuContainerVariants = {
+const menuContainerVariants: Variants = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } },
 };
 
-const menuItemVariants = {
+const menuItemVariants: Variants = {
   hidden: { opacity: 0, x: 20 },
   visible: { opacity: 1, x: 0, transition: { duration: 0.22, ease: "easeOut" } },
 };
