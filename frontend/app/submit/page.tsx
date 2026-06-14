@@ -348,7 +348,7 @@ export default function SubmitPage() {
 
       // Wait for GenLayer consensus to accept and capture receipt
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const receipt = await glClient.waitForTransactionReceipt({ hash, status: "ACCEPTED" as any, timeout: 300000 });
+      const receipt = await (glClient as any).waitForTransactionReceipt({ hash, status: "ACCEPTED", timeout: 300000 });
 
       console.log("Full receipt:", JSON.stringify(receipt, null, 2));
 
@@ -374,11 +374,19 @@ export default function SubmitPage() {
       router.push(`/verify?${params}`);
     } catch (err: unknown) {
       setSubmitting(false);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      if (errMsg.includes("Timed out")) {
+      const errMsg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      if (errMsg.includes("timed out") || errMsg.includes("timeout")) {
         setSubmitError("Verification is taking longer than expected. Please check back in a few minutes — your project may still be processing.");
+      } else if (errMsg.includes("user rejected") || errMsg.includes("rejected the request")) {
+        setSubmitError("Transaction cancelled.");
+      } else if (errMsg.includes("insufficient funds") || errMsg.includes("insufficient balance")) {
+        setSubmitError("Insufficient GEN balance. Please add funds to your wallet.");
+      } else if (errMsg.includes("reverted") || errMsg.includes("execution failed")) {
+        setSubmitError("Transaction failed. Please try again.");
+      } else if (errMsg.includes("failed to fetch") || errMsg.includes("networkerror") || errMsg.includes("network error")) {
+        setSubmitError("Unable to connect. Please check your internet connection and try again.");
       } else {
-        setSubmitError(errMsg);
+        setSubmitError("Something went wrong. Please try again.");
       }
     }
   };
@@ -435,7 +443,7 @@ export default function SubmitPage() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                Verifying your project on GenLayer Bradbury...
+                Submitting to GenLayer Intelligent Contracts...
               </h2>
               <p
                 style={{
@@ -446,7 +454,7 @@ export default function SubmitPage() {
                   maxWidth: "400px",
                 }}
               >
-                GenLayer Intelligent Contracts are reviewing your submission
+                This may take 2–5 minutes
               </p>
             </div>
             <div style={{ display: "flex", gap: "0.375rem", marginTop: "0.5rem" }}>

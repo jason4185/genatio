@@ -20,7 +20,7 @@ export function useProject(projectId: string | null) {
 
     fetch(`/api/project/${encodeURIComponent(projectId)}`)
       .then(async (res) => {
-        if (!res.ok) throw new Error(res.status === 404 ? "Project not found" : `HTTP ${res.status}`);
+        if (!res.ok) throw new Error(res.status === 404 ? "not_found" : "server_error");
         return res.json();
       })
       .then((data: Project) => {
@@ -31,7 +31,14 @@ export function useProject(projectId: string | null) {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load project");
+          const msg = err instanceof Error ? err.message : "";
+          if (msg === "not_found") {
+            setError("Project not found.");
+          } else if (msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("network")) {
+            setError("Unable to connect. Please check your internet connection and try again.");
+          } else {
+            setError("Unable to load this project. Please try again.");
+          }
         }
       })
       .finally(() => {

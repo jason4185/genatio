@@ -87,6 +87,7 @@ async function resolveFlag(hash: string): Promise<{ resolution: "valid" | "inval
   const receipt = await (glClient as any).waitForTransactionReceipt({
     hash,
     status: "ACCEPTED",
+    timeout: 300000,
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resultRaw = (receipt as any)?.consensus_data?.leader_receipt?.[0]?.result;
@@ -346,7 +347,18 @@ export default function ProjectDetailPage() {
       setFlagTxHash(hashStr);
       setFlagPhase("pending");
     } catch (err: unknown) {
-      setFlagError(err instanceof Error ? err.message : "Transaction failed. Please try again.");
+      const errMsg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      if (errMsg.includes("user rejected") || errMsg.includes("rejected the request")) {
+        setFlagError("Transaction cancelled.");
+      } else if (errMsg.includes("insufficient funds") || errMsg.includes("insufficient balance")) {
+        setFlagError("Insufficient GEN balance. Please add funds to your wallet.");
+      } else if (errMsg.includes("reverted") || errMsg.includes("execution failed")) {
+        setFlagError("Transaction failed. Please try again.");
+      } else if (errMsg.includes("failed to fetch") || errMsg.includes("network error")) {
+        setFlagError("Unable to connect. Please check your internet connection and try again.");
+      } else {
+        setFlagError("Something went wrong. Please try again.");
+      }
       setFlagPhase("form");
     }
   };
@@ -371,7 +383,14 @@ export default function ProjectDetailPage() {
       }
     } catch (err: unknown) {
       if (keepWaitingActiveRef.current) {
-        setFlagError(err instanceof Error ? err.message : "Error checking status.");
+        const errMsg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+        if (errMsg.includes("timed out") || errMsg.includes("timeout")) {
+          setFlagError("Investigation is taking longer than expected. Please check back in a few minutes.");
+        } else if (errMsg.includes("failed to fetch") || errMsg.includes("network error")) {
+          setFlagError("Unable to connect. Please check your internet connection and try again.");
+        } else {
+          setFlagError("Something went wrong checking the status. Please try again.");
+        }
         setFlagPhase("pending");
       }
     }
@@ -1137,7 +1156,7 @@ export default function ProjectDetailPage() {
                   Confirm in your wallet
                 </p>
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6 }}>
-                  Submitting flag to GenLayer Intelligent Contracts...
+                  Submitting flag to GenLayer Intelligent Contracts... This may take 2–5 minutes
                 </p>
               </div>
             )}

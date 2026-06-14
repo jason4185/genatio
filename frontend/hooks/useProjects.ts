@@ -34,12 +34,17 @@ export function useProjects(status: string = "", enabled = true) {
   const fetchProjects = useCallback(async () => {
     try {
       const res = await fetch(`/api/projects?status=${encodeURIComponent(status)}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error("server_error");
       const data = await res.json();
       setProjects(parseProjectsResult(data));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load projects");
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("network")) {
+        setError("Unable to connect. Please check your internet connection and try again.");
+      } else {
+        setError("Unable to load projects. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

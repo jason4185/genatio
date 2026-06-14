@@ -493,7 +493,7 @@ export default function BrowsePage() {
                   margin: 0,
                 }}
               >
-                Failed to load projects
+                Unable to load projects. Please try again.
               </p>
               <button
                 onClick={refetch}
