@@ -84,7 +84,13 @@ Check each flag reason against the evidence from GitHub data.
 If the flag reasons are supported by evidence reply exactly: VALID - one sentence reason
 If the project appears legitimate and flag is unfounded reply exactly: INVALID - one sentence reason"""
                 )
-                return str(result).strip() if result else "INVALID - Unable to evaluate"
+                result_str = str(result).strip() if result else ""
+                if not result_str:
+                    return "INVALID - Unable to evaluate"
+                upper = result_str.upper()
+                if "VALID" not in upper and "INVALID" not in upper:
+                    return "INVALID - Inconclusive evaluation"
+                return result_str
             except:
                 return "INVALID - Unable to evaluate due to error"
 
@@ -92,7 +98,7 @@ If the project appears legitimate and flag is unfounded reply exactly: INVALID -
             if not isinstance(leaders_res, gl.vm.Return):
                 return False
             result = leaders_res.calldata.strip().upper()
-            return result.startswith("VALID") or result.startswith("INVALID")
+            return "VALID" in result or "INVALID" in result
 
         resolution = gl.vm.run_nondet_unsafe(resolve, flag_validator_fn)
 
