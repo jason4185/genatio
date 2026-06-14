@@ -1,58 +1,44 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, X, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Bell, X, CheckCircle, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAccount } from "wagmi";
-import {
-  type FlagNotification,
-  getFlagNotifications,
-  saveFlagNotification,
-  updateFlagNotification,
-  clearFlagNotification,
-} from "@/lib/flagNotifications";
 import type { ContractFlagResult } from "@/app/api/my-flags/route";
 
 // ── Notification item ──────────────────────────────────────────────────────
 
 function NotificationItem({
-  notification,
+  flag,
+  read,
   onMarkRead,
   onDismiss,
 }: {
-  notification: FlagNotification;
+  flag: ContractFlagResult;
+  read: boolean;
   onMarkRead: () => void;
   onDismiss: () => void;
 }) {
-  const isPending = notification.status === "pending";
-  const isValid = notification.resolution === "VALID";
+  const isValid = flag.resolution === "VALID";
 
-  const icon = isPending ? (
-    <Clock size={14} />
-  ) : isValid ? (
+  const icon = isValid ? (
     <AlertCircle size={14} />
   ) : (
     <CheckCircle size={14} />
   );
 
-  const text = isPending
-    ? `Your flag on "${notification.projectTitle}" is being investigated`
-    : isValid
-    ? `Flag confirmed — "${notification.projectTitle}" has been removed`
-    : `Flag reviewed — "${notification.projectTitle}" appears legitimate`;
+  const text = isValid
+    ? `Flag confirmed — "${flag.projectTitle}" has been removed`
+    : `Flag reviewed — "${flag.projectTitle}" appears legitimate`;
 
-  const accentColor = isPending
-    ? "var(--color-text-muted)"
-    : isValid
-    ? "var(--color-danger)"
-    : "var(--color-success)";
+  const accentColor = isValid ? "var(--color-danger)" : "var(--color-success)";
 
   return (
     <div
       style={{
         padding: "0.875rem 1rem",
         borderBottom: "1px solid var(--color-border-subtle)",
-        backgroundColor: notification.read
+        backgroundColor: read
           ? "transparent"
           : "color-mix(in srgb, var(--color-accent-blue) 4%, transparent)",
         display: "flex",
@@ -75,7 +61,7 @@ function NotificationItem({
         >
           {text}
         </p>
-        {notification.reason && !isPending && (
+        {flag.reason && (
           <p
             style={{
               fontFamily: "var(--font-jakarta), system-ui, sans-serif",
@@ -85,10 +71,10 @@ function NotificationItem({
               lineHeight: 1.5,
             }}
           >
-            {notification.reason}
+            {flag.reason}
           </p>
         )}
-        {!notification.read && !isPending && (
+        {!read && (
           <button
             onClick={onMarkRead}
             style={{
@@ -129,63 +115,26 @@ function NotificationItem({
 
 export function NotificationBell() {
   const { address } = useAccount();
-  const [notifications, setNotifications] = useState<FlagNotification[]>([]);
+  const [flags, setFlags] = useState<ContractFlagResult[]>([]);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [read, setRead] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const refresh = useCallback(() => {
-    if (!address) { setNotifications([]); return; }
-    setNotifications(getFlagNotifications(address));
-  }, [address]);
-
-  // Load from localStorage whenever address changes
-  useEffect(() => { refresh(); }, [refresh]);
-
-  // Sync with contract on wallet connect
+  // Fetch from contract API on wallet connect
   useEffect(() => {
-    if (!address) return;
+    if (!address) { setFlags([]); return; }
     let cancelled = false;
 
-    (async () => {
-      try {
-        const res = await fetch(`/api/my-flags?wallet=${address}`);
-        if (!res.ok || cancelled) return;
-        const contractFlags: ContractFlagResult[] = await res.json();
-
-        for (const cf of contractFlags) {
-          if (cancelled) return;
-          const current = getFlagNotifications(address).find(
-            (n) => n.projectId === cf.projectId
-          );
-          if (!current) {
-            saveFlagNotification(address, {
-              projectId: cf.projectId,
-              projectTitle: cf.projectTitle,
-              txHash: `contract_${cf.projectId}`,
-              status: "complete",
-              resolution: cf.resolution,
-              reason: cf.reason,
-              timestamp: Date.now(),
-              read: false,
-            });
-          } else if (current.status === "pending") {
-            updateFlagNotification(address, current.txHash, {
-              status: "complete",
-              resolution: cf.resolution,
-              reason: cf.reason,
-              read: false,
-            });
-          }
-        }
-
-        if (!cancelled) refresh();
-      } catch {
-        // non-critical — silently skip
-      }
-    })();
+    fetch(`/api/my-flags?wallet=${address}`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: ContractFlagResult[]) => {
+        if (!cancelled) setFlags(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {});
 
     return () => { cancelled = true; };
-  }, [address, refresh]);
+  }, [address]);
 
   // Close on outside click
   useEffect(() => {
@@ -200,20 +149,15 @@ export function NotificationBell() {
 
   if (!address) return null;
 
-  const unreadCount = notifications.filter(
-    (n) => n.status === "complete" && !n.read
-  ).length;
+  const visible = flags.filter(f => !dismissed.has(f.projectId));
+  const unreadCount = visible.filter(f => !read.has(f.projectId)).length;
 
-  const markRead = (txHash: string) => {
-    if (!address) return;
-    updateFlagNotification(address, txHash, { read: true });
-    refresh();
+  const markRead = (projectId: string) => {
+    setRead(prev => new Set(prev).add(projectId));
   };
 
-  const dismiss = (txHash: string) => {
-    if (!address) return;
-    clearFlagNotification(address, txHash);
-    refresh();
+  const dismiss = (projectId: string) => {
+    setDismissed(prev => new Set(prev).add(projectId));
   };
 
   return (
@@ -321,7 +265,7 @@ export function NotificationBell() {
 
             {/* Body */}
             <div style={{ maxHeight: "360px", overflowY: "auto" }}>
-              {notifications.length === 0 ? (
+              {visible.length === 0 ? (
                 <div
                   style={{
                     padding: "2.5rem 1rem",
@@ -334,12 +278,13 @@ export function NotificationBell() {
                   No notifications yet.
                 </div>
               ) : (
-                notifications.map((notif) => (
+                visible.map((flag) => (
                   <NotificationItem
-                    key={notif.txHash}
-                    notification={notif}
-                    onMarkRead={() => markRead(notif.txHash)}
-                    onDismiss={() => dismiss(notif.txHash)}
+                    key={flag.projectId}
+                    flag={flag}
+                    read={read.has(flag.projectId)}
+                    onMarkRead={() => markRead(flag.projectId)}
+                    onDismiss={() => dismiss(flag.projectId)}
                   />
                 ))
               )}

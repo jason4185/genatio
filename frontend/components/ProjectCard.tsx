@@ -1,21 +1,24 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { GitFork, Clock } from "lucide-react";
 import ScoreRing from "./ScoreRing";
 import FundingProgress from "./FundingProgress";
 
 interface ProjectCardProps {
+  projectId: string;
   name: string;
   repo: string;
   description: string;
   score: number;
-  status: "ACTIVE" | "REJECTED" | "PENDING";
+  status: "ACTIVE" | "active" | "REJECTED" | "rejected" | "PENDING" | "pending" | "DISPUTED" | "disputed" | "ENDED" | "ended" | string;
   raised: number;
   goal: number;
   daysLeft: number;
 }
 
 export default function ProjectCard({
+  projectId,
   name,
   repo,
   description,
@@ -25,8 +28,15 @@ export default function ProjectCard({
   goal,
   daysLeft,
 }: ProjectCardProps) {
+  const router = useRouter();
+  const upper = status.toUpperCase();
   const statusColor =
-    status === "ACTIVE" ? "#27AE60" : status === "REJECTED" ? "#EB5757" : "#8899AA";
+    upper === "ACTIVE" ? "var(--color-success)" : upper === "REJECTED" ? "var(--color-danger)" : "var(--color-text-secondary)";
+  const statusBorderColor =
+    upper === "ACTIVE" ? "var(--color-success)" :
+    upper === "REJECTED" ? "var(--color-danger)" :
+    upper === "DISPUTED" ? "var(--color-warning)" :
+    "var(--color-border-subtle)";
 
   const formatAmount = (n: number) => {
     if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
@@ -35,28 +45,31 @@ export default function ProjectCard({
 
   return (
     <div
+      onClick={() => router.push(`/project/${projectId}`)}
       style={{
-        backgroundColor: "rgba(12,18,32,0.7)",
+        backgroundColor: "rgba(var(--color-surface-rgb), 0.7)",
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
-        border: "1px solid #1E2D45",
+        border: "1px solid var(--color-border-subtle)",
         borderRadius: "12px",
         padding: "1.25rem",
         display: "flex",
         flexDirection: "column",
         gap: "1rem",
-        transition: "transform 0.2s ease, box-shadow 0.2s ease",
-        cursor: "default",
+        transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease",
+        cursor: "pointer",
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget;
         el.style.transform = "translateY(-4px)";
-        el.style.boxShadow = "0 0 36px rgba(45,156,219,0.15)";
+        el.style.boxShadow = "0 0 36px color-mix(in srgb, var(--color-accent-blue) 15%, transparent)";
+        el.style.borderColor = "color-mix(in srgb, var(--color-accent-blue) 35%, transparent)";
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget;
         el.style.transform = "translateY(0)";
         el.style.boxShadow = "none";
+        el.style.borderColor = "var(--color-border-subtle)";
       }}
     >
       {/* Top row: name + ring */}
@@ -70,12 +83,12 @@ export default function ProjectCard({
               marginBottom: "0.375rem",
             }}
           >
-            <GitFork size={14} color="#4A5568" />
+            <GitFork size={14} color="var(--color-text-muted)" />
             <span
               style={{
                 fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
                 fontSize: "0.75rem",
-                color: "#4A5568",
+                color: "var(--color-text-muted)",
                 letterSpacing: "0.02em",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -90,7 +103,7 @@ export default function ProjectCard({
               fontFamily: "var(--font-jakarta), system-ui, sans-serif",
               fontSize: "1rem",
               fontWeight: 700,
-              color: "#F0F4FF",
+              color: "var(--color-text-primary)",
               margin: 0,
               letterSpacing: "-0.02em",
             }}
@@ -109,7 +122,7 @@ export default function ProjectCard({
               fontWeight: 700,
               color: statusColor,
               letterSpacing: "0.08em",
-              border: `1px solid ${statusColor}33`,
+              border: `1px solid ${statusBorderColor}`,
               borderRadius: "100px",
               padding: "0.125rem 0.5rem",
             }}
@@ -124,7 +137,7 @@ export default function ProjectCard({
         style={{
           fontFamily: "var(--font-jakarta), system-ui, sans-serif",
           fontSize: "0.875rem",
-          color: "#8899AA",
+          color: "var(--color-text-secondary)",
           lineHeight: 1.6,
           margin: 0,
           display: "-webkit-box",
@@ -144,13 +157,13 @@ export default function ProjectCard({
             style={{
               fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
               fontSize: "0.8125rem",
-              color: "#F0F4FF",
+              color: "var(--color-text-primary)",
               fontWeight: 600,
             }}
           >
-            {formatAmount(raised)} GLY{" "}
-            <span style={{ color: "#4A5568", fontWeight: 400 }}>
-              / {formatAmount(goal)} GLY
+            {formatAmount(raised)} GEN{" "}
+            <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}>
+              / {formatAmount(goal)} GEN
             </span>
           </span>
           <span
@@ -160,10 +173,10 @@ export default function ProjectCard({
               gap: "0.25rem",
               fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
               fontSize: "0.75rem",
-              color: "#8899AA",
+              color: "var(--color-text-secondary)",
             }}
           >
-            <Clock size={11} color="#4A5568" />
+            <Clock size={11} color="var(--color-text-muted)" />
             {daysLeft}d left
           </span>
         </div>
@@ -171,13 +184,17 @@ export default function ProjectCard({
 
       {/* CTA */}
       <button
+        onClick={(e) => {
+          e.stopPropagation();
+          router.push(`/project/${projectId}`);
+        }}
         style={{
           fontFamily: "var(--font-jakarta), system-ui, sans-serif",
           fontSize: "0.875rem",
           fontWeight: 600,
-          color: "#2D9CDB",
+          color: "var(--color-accent-blue)",
           backgroundColor: "transparent",
-          border: "1px solid #2D9CDB",
+          border: "1px solid var(--color-accent-blue)",
           borderRadius: "8px",
           padding: "0.625rem 1rem",
           cursor: "pointer",
@@ -186,12 +203,12 @@ export default function ProjectCard({
           letterSpacing: "-0.01em",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = "#2D9CDB";
-          e.currentTarget.style.color = "#F0F4FF";
+          e.currentTarget.style.backgroundColor = "var(--color-accent-blue)";
+          e.currentTarget.style.color = "var(--color-text-primary)";
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.backgroundColor = "transparent";
-          e.currentTarget.style.color = "#2D9CDB";
+          e.currentTarget.style.color = "var(--color-accent-blue)";
         }}
       >
         Fund Project →

@@ -12,8 +12,8 @@ interface Stats {
 function computeStats(projects: Project[]): Stats {
   return {
     totalProjects: projects.length,
-    totalDonors: projects.reduce((sum, p) => sum + (p.donor_count ?? 0), 0),
-    totalRaised: projects.reduce((sum, p) => sum + Number(p.raised_gen ?? 0) / 1e18, 0),
+    totalDonors: projects.reduce((sum, p) => sum + parseInt(String(p.donor_count ?? 0), 10), 0),
+    totalRaised: projects.reduce((sum, p) => sum + parseInt(String(p.raised_gen ?? 0), 10) / 1e18, 0),
   };
 }
 

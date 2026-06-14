@@ -34,7 +34,7 @@ export default function FundingProgress({ raised, goal }: FundingProgressProps) 
         style={{
           width: "100%",
           height: "3px",
-          backgroundColor: "#1E2D45",
+          backgroundColor: "var(--color-border-subtle)",
           borderRadius: "2px",
           overflow: "hidden",
         }}
@@ -43,10 +43,10 @@ export default function FundingProgress({ raised, goal }: FundingProgressProps) 
           style={{
             height: "100%",
             width: `${width}%`,
-            background: "linear-gradient(90deg, #2D9CDB, #00C6FF)",
+            background: "linear-gradient(90deg, var(--color-accent-blue), var(--color-accent-cyan))",
             borderRadius: "2px",
             transition: "width 1.2s cubic-bezier(0.4, 0, 0.2, 1)",
-            boxShadow: "0 0 8px rgba(45,156,219,0.6)",
+            boxShadow: "0 0 8px color-mix(in srgb, var(--color-accent-blue) 60%, transparent)",
           }}
         />
       </div>

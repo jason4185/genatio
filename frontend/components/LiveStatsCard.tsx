@@ -136,12 +136,12 @@ export function LiveStatsCard({
       <style>{`
         @keyframes card-glow {
           0%, 100% {
-            box-shadow: 0 0 0 0 rgba(45,156,219,0);
+            box-shadow: none;
             border-color: var(--color-border-subtle);
           }
           50% {
-            box-shadow: 0 0 28px 4px rgba(45,156,219,0.13);
-            border-color: rgba(45,156,219,0.38);
+            box-shadow: 0 0 28px 4px color-mix(in srgb, var(--color-accent-blue) 13%, transparent);
+            border-color: color-mix(in srgb, var(--color-accent-blue) 38%, transparent);
           }
         }
         @keyframes skeleton-shimmer {
@@ -172,7 +172,7 @@ export function LiveStatsCard({
             gap: "0.5rem",
             padding: "0.625rem 2rem",
             borderBottom: "1px solid var(--color-border-subtle)",
-            backgroundColor: "rgba(39,174,96,0.04)",
+            backgroundColor: "color-mix(in srgb, var(--color-success) 4%, transparent)",
           }}
         >
           <span

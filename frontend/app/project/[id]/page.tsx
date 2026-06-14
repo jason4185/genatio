@@ -17,11 +17,6 @@ import FundingProgress from "@/components/FundingProgress";
 import { useProject } from "@/hooks/useProject";
 import { useFunders } from "@/hooks/useFunders";
 import { DISPUTE_CONTRACT } from "@/lib/genatio";
-import {
-  saveFlagNotification,
-  updateFlagNotification,
-  getProjectFlag,
-} from "@/lib/flagNotifications";
 
 type FlagPhase = "form" | "submitting" | "pending" | "waiting" | "resolved_invalid" | "resolved_valid";
 type BannerType = "pending" | "invalid" | "valid";
@@ -90,7 +85,7 @@ async function resolveFlag(hash: string): Promise<{ resolution: "valid" | "inval
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const receipt = await (glClient as any).waitForTransactionReceipt({
     hash,
-    status: "FINALIZED",
+    status: "ACCEPTED",
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resultRaw = (receipt as any)?.consensus_data?.leader_receipt?.[0]?.result;
@@ -295,45 +290,21 @@ export default function ProjectDetailPage() {
     !!address && !!project?.wallet &&
     address.toLowerCase() === project.wallet.toLowerCase();
 
-  // ── Page load: restore banner from notification storage ─────────────────
+  // ── CHANGE 4: Page load: check contract for flag via API ────────────────
   useEffect(() => {
-    if (!address || !projectId) return;
-    const notif = getProjectFlag(address, projectId);
-    if (!notif) return;
-    if (notif.status === "complete") {
-      setBannerReason(notif.reason ?? "");
-      setFlagBanner(notif.resolution === "VALID" ? "valid" : "invalid");
-    } else {
-      setFlagBanner("pending");
-    }
-  }, [address, projectId]);
-
-  // ── Poll for FINALIZED whenever banner is pending ────────────────────────
-  useEffect(() => {
-    if (flagBanner !== "pending" || !address || !projectId) return;
-
-    const notif = getProjectFlag(address, projectId);
-    if (!notif || notif.status === "complete") return;
-
-    const { txHash } = notif;
-    let cancelled = false;
-
-    resolveFlag(txHash).then(({ resolution, reason }) => {
-      if (cancelled) return;
-      updateFlagNotification(address, txHash, {
-        status: "complete",
-        resolution: resolution === "valid" ? "VALID" : "INVALID",
-        reason,
-        read: false,
-      });
-      setBannerReason(reason);
-      setFlagBanner(resolution === "valid" ? "valid" : "invalid");
-    }).catch(() => {
-      // Keep pending banner on error
-    });
-
-    return () => { cancelled = true; };
-  }, [flagBanner, address, projectId]);
+    if (!address || !projectId || !project) return;
+    fetch(`/api/flags/${projectId}`)
+      .then(r => r.json())
+      .then(flag => {
+        if (!flag) return;
+        if (flag.raised_by?.toLowerCase() === address.toLowerCase()) {
+          const isValid = String(flag.resolution ?? "").toUpperCase().startsWith("VALID");
+          setFlagBanner(isValid ? "valid" : "invalid");
+          setBannerReason(flag.resolution ?? "");
+        }
+      })
+      .catch(() => {});
+  }, [address, projectId, project]);
 
   // ── Flag modal helpers ───────────────────────────────────────────────────
   const closeFlagModal = () => {
@@ -371,13 +342,6 @@ export default function ProjectDetailPage() {
       });
 
       const hashStr = String(hash);
-      saveFlagNotification(address, {
-        projectId,
-        projectTitle: project.title,
-        txHash: hashStr,
-        status: "pending",
-        timestamp: Date.now(),
-      });
       setFlagTxHash(hashStr);
       setFlagPhase("pending");
     } catch (err: unknown) {
@@ -394,16 +358,6 @@ export default function ProjectDetailPage() {
 
     try {
       const { resolution, reason } = await resolveFlag(flagTxHash);
-
-      // Persist resolution in notification storage
-      if (address && projectId) {
-        updateFlagNotification(address, flagTxHash, {
-          status: "complete",
-          resolution: resolution === "valid" ? "VALID" : "INVALID",
-          reason,
-          read: false,
-        });
-      }
 
       if (keepWaitingActiveRef.current) {
         // Modal is still open — update modal state
@@ -431,6 +385,8 @@ export default function ProjectDetailPage() {
     setFlagError(null);
   };
 
+  const [showFundToast, setShowFundToast] = useState(false);
+
   // ── Funders (staggered) ──────────────────────────────────────────────────
   const [fundersId, setFundersId] = useState<string | null>(null);
   useEffect(() => {
@@ -456,10 +412,10 @@ export default function ProjectDetailPage() {
 
   const statusBorderColor =
     project?.status === "ACTIVE"
-      ? "rgba(39,174,96,0.2)"
+      ? "color-mix(in srgb, var(--color-success) 20%, transparent)"
       : project?.status === "DISPUTED"
-      ? "rgba(245,158,11,0.2)"
-      : "rgba(136,153,170,0.2)";
+      ? "color-mix(in srgb, var(--color-warning) 20%, transparent)"
+      : "color-mix(in srgb, var(--color-text-secondary) 20%, transparent)";
 
   const endDate = project
     ? new Date(new Date(project.created_at).getTime() + Number(project.duration_days) * 24 * 3600 * 1000)
@@ -594,7 +550,7 @@ export default function ProjectDetailPage() {
             <div
               style={{
                 ...cardStyle,
-                borderColor: "rgba(235,87,87,0.3)",
+                borderColor: "color-mix(in srgb, var(--color-danger) 30%, transparent)",
                 textAlign: "center",
                 padding: "4rem 2rem",
                 display: "flex",
@@ -780,8 +736,8 @@ export default function ProjectDetailPage() {
                                 width: "32px",
                                 height: "32px",
                                 borderRadius: "50%",
-                                backgroundColor: "rgba(45,156,219,0.1)",
-                                border: "1px solid rgba(45,156,219,0.2)",
+                                backgroundColor: "color-mix(in srgb, var(--color-accent-blue) 10%, transparent)",
+                                border: "1px solid color-mix(in srgb, var(--color-accent-blue) 20%, transparent)",
                                 flexShrink: 0,
                                 display: "flex",
                                 alignItems: "center",
@@ -890,24 +846,70 @@ export default function ProjectDetailPage() {
                     )}
                   </div>
 
-                  <button
-                    disabled
-                    style={{
-                      fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                      fontSize: "0.9375rem",
-                      fontWeight: 600,
-                      color: "var(--color-text-muted)",
-                      backgroundColor: "var(--color-elevated)",
-                      border: "1px solid var(--color-border-subtle)",
-                      borderRadius: "10px",
-                      padding: "0.875rem 1rem",
-                      cursor: "not-allowed",
-                      width: "100%",
-                      letterSpacing: "-0.01em",
-                    }}
-                  >
-                    GEN Transfers Coming Soon
-                  </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <button
+                      title="GEN transfers coming soon — Bradbury support pending"
+                      aria-disabled="true"
+                      onClick={() => {
+                        setShowFundToast(true);
+                        setTimeout(() => setShowFundToast(false), 3500);
+                      }}
+                      style={{
+                        fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                        fontSize: "0.9375rem",
+                        fontWeight: 600,
+                        color: "var(--color-text-muted)",
+                        backgroundColor: "var(--color-elevated)",
+                        border: "1px solid var(--color-border-subtle)",
+                        borderRadius: "10px",
+                        padding: "0.875rem 1rem",
+                        cursor: "not-allowed",
+                        width: "100%",
+                        letterSpacing: "-0.01em",
+                        opacity: 0.75,
+                      }}
+                    >
+                      Fund Project
+                    </button>
+
+                    <AnimatePresence>
+                      {showFundToast ? (
+                        <motion.p
+                          key="fund-toast"
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          transition={{ duration: 0.2 }}
+                          style={{
+                            fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                            fontSize: "0.8125rem",
+                            color: "var(--color-accent-blue)",
+                            margin: 0,
+                            textAlign: "center",
+                          }}
+                        >
+                          GEN transfers coming soon — Bradbury support pending
+                        </motion.p>
+                      ) : (
+                        <motion.p
+                          key="fund-hint"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          style={{
+                            fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                            fontSize: "0.8125rem",
+                            color: "var(--color-text-muted)",
+                            margin: 0,
+                            textAlign: "center",
+                          }}
+                        >
+                          GEN transfers coming soon
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
 
                 {/* Verification Card */}
@@ -918,8 +920,8 @@ export default function ProjectDetailPage() {
                         width: "30px",
                         height: "30px",
                         borderRadius: "8px",
-                        backgroundColor: "rgba(39,174,96,0.12)",
-                        border: "1px solid rgba(39,174,96,0.2)",
+                        backgroundColor: "color-mix(in srgb, var(--color-success) 12%, transparent)",
+                        border: "1px solid color-mix(in srgb, var(--color-success) 20%, transparent)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -960,7 +962,7 @@ export default function ProjectDetailPage() {
                 </div>
 
                 {/* Flag Card */}
-                <div style={{ ...cardStyle, borderColor: "rgba(235,87,87,0.18)" }}>
+                <div style={{ ...cardStyle, borderColor: "color-mix(in srgb, var(--color-danger) 18%, transparent)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
                     <Flag size={13} color="var(--color-danger)" />
                     <p className="section-eyebrow" style={{ margin: 0, color: "var(--color-danger)" }}>
@@ -989,7 +991,7 @@ export default function ProjectDetailPage() {
                     }}
                     onMouseEnter={(e) => {
                       if (isConnected && !isOwnProject)
-                        e.currentTarget.style.backgroundColor = "rgba(235,87,87,0.06)";
+                        e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-danger) 6%, transparent)";
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = "transparent";
@@ -1073,7 +1075,7 @@ export default function ProjectDetailPage() {
             alignItems: "center",
             justifyContent: "center",
             padding: "1.5rem",
-            backgroundColor: "rgba(0,0,0,0.55)",
+            backgroundColor: "rgba(var(--color-background-rgb), 0.8)",
             backdropFilter: "blur(4px)",
             WebkitBackdropFilter: "blur(4px)",
           }}
@@ -1183,7 +1185,7 @@ export default function ProjectDetailPage() {
                 </div>
 
                 {flagError && (
-                  <div style={{ padding: "0.75rem 1rem", backgroundColor: "rgba(235,87,87,0.06)", border: "1px solid rgba(235,87,87,0.2)", borderRadius: "8px" }}>
+                  <div style={{ padding: "0.75rem 1rem", backgroundColor: "color-mix(in srgb, var(--color-danger) 6%, transparent)", border: "1px solid color-mix(in srgb, var(--color-danger) 20%, transparent)", borderRadius: "8px" }}>
                     <p style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: "0.8125rem", color: "var(--color-danger)", margin: 0, wordBreak: "break-word" }}>
                       {flagError}
                     </p>
@@ -1357,8 +1359,8 @@ export default function ProjectDetailPage() {
                             cursor: "pointer",
                             padding: "0.625rem 0.875rem",
                             borderRadius: "8px",
-                            border: `1px solid ${checked ? "rgba(235,87,87,0.3)" : "var(--color-border-subtle)"}`,
-                            backgroundColor: checked ? "rgba(235,87,87,0.04)" : "transparent",
+                            border: `1px solid ${checked ? "color-mix(in srgb, var(--color-danger) 30%, transparent)" : "var(--color-border-subtle)"}`,
+                            backgroundColor: checked ? "color-mix(in srgb, var(--color-danger) 4%, transparent)" : "transparent",
                             transition: "border-color 0.15s ease, background-color 0.15s ease",
                           }}
                         >
@@ -1385,7 +1387,7 @@ export default function ProjectDetailPage() {
                   </div>
 
                   {flagError && (
-                    <div style={{ padding: "0.75rem 1rem", backgroundColor: "rgba(235,87,87,0.06)", border: "1px solid rgba(235,87,87,0.2)", borderRadius: "8px", marginBottom: "1rem" }}>
+                    <div style={{ padding: "0.75rem 1rem", backgroundColor: "color-mix(in srgb, var(--color-danger) 6%, transparent)", border: "1px solid color-mix(in srgb, var(--color-danger) 20%, transparent)", borderRadius: "8px", marginBottom: "1rem" }}>
                       <p style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: "0.8125rem", color: "var(--color-danger)", margin: 0, wordBreak: "break-word" }}>
                         {flagError}
                       </p>
@@ -1433,7 +1435,7 @@ export default function ProjectDetailPage() {
                       }}
                       onMouseEnter={(e) => {
                         if (selectedReasons.length > 0)
-                          e.currentTarget.style.backgroundColor = "rgba(235,87,87,0.06)";
+                          e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-danger) 6%, transparent)";
                       }}
                       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                     >

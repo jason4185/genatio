@@ -144,14 +144,14 @@ function StepIndicator({ step }: { step: Step }) {
               }}
             >
               {step > s.num ? (
-                <Check size={15} color="#F0F4FF" strokeWidth={2.5} />
+                <Check size={15} color="var(--color-background)" strokeWidth={2.5} />
               ) : (
                 <span
                   style={{
                     fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
                     fontSize: "0.8125rem",
                     fontWeight: 700,
-                    color: step === s.num ? "#F0F4FF" : "var(--color-text-muted)",
+                    color: step === s.num ? "var(--color-background)" : "var(--color-text-muted)",
                   }}
                 >
                   {s.num}
@@ -267,7 +267,7 @@ function NavButtons({
           fontFamily: "var(--font-jakarta), system-ui, sans-serif",
           fontSize: "0.9rem",
           fontWeight: 600,
-          color: "#F0F4FF",
+          color: "var(--color-background)",
           backgroundColor: "var(--color-accent-blue)",
           border: "none",
           borderRadius: "8px",
@@ -411,8 +411,8 @@ export default function SubmitPage() {
                 width: "64px",
                 height: "64px",
                 borderRadius: "50%",
-                backgroundColor: "rgba(45,156,219,0.1)",
-                border: "1px solid rgba(45,156,219,0.3)",
+                backgroundColor: "color-mix(in srgb, var(--color-accent-blue) 10%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--color-accent-blue) 30%, transparent)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -489,8 +489,8 @@ export default function SubmitPage() {
                 width: "64px",
                 height: "64px",
                 borderRadius: "50%",
-                backgroundColor: "rgba(45,156,219,0.08)",
-                border: "1px solid rgba(45,156,219,0.2)",
+                backgroundColor: "color-mix(in srgb, var(--color-accent-blue) 8%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--color-accent-blue) 20%, transparent)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -853,7 +853,7 @@ export default function SubmitPage() {
                     <div
                       style={{
                         padding: "0.625rem 1rem",
-                        backgroundColor: "rgba(45,156,219,0.05)",
+                        backgroundColor: "color-mix(in srgb, var(--color-accent-blue) 5%, transparent)",
                         borderBottom: "1px solid var(--color-border-subtle)",
                       }}
                     >
@@ -913,7 +913,7 @@ export default function SubmitPage() {
                     <div
                       style={{
                         padding: "0.625rem 1rem",
-                        backgroundColor: "rgba(45,156,219,0.05)",
+                        backgroundColor: "color-mix(in srgb, var(--color-accent-blue) 5%, transparent)",
                         borderTop: "1px solid var(--color-border-subtle)",
                         borderBottom: "1px solid var(--color-border-subtle)",
                       }}
@@ -976,8 +976,8 @@ export default function SubmitPage() {
                       display: "flex",
                       gap: "0.75rem",
                       padding: "0.875rem 1rem",
-                      backgroundColor: "rgba(235,87,87,0.06)",
-                      border: "1px solid rgba(235,87,87,0.2)",
+                      backgroundColor: "color-mix(in srgb, var(--color-danger) 6%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--color-danger) 20%, transparent)",
                       borderRadius: "8px",
                       marginBottom: "0.75rem",
                       alignItems: "flex-start",
@@ -1005,8 +1005,8 @@ export default function SubmitPage() {
                       display: "flex",
                       gap: "0.75rem",
                       padding: "0.875rem 1rem",
-                      backgroundColor: "rgba(45,156,219,0.05)",
-                      border: "1px solid rgba(45,156,219,0.18)",
+                      backgroundColor: "color-mix(in srgb, var(--color-accent-blue) 5%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--color-accent-blue) 18%, transparent)",
                       borderRadius: "8px",
                       marginBottom: submitError ? "0.75rem" : "0.25rem",
                       alignItems: "flex-start",
@@ -1045,8 +1045,8 @@ export default function SubmitPage() {
                         display: "flex",
                         gap: "0.75rem",
                         padding: "0.875rem 1rem",
-                        backgroundColor: "rgba(235,87,87,0.06)",
-                        border: "1px solid rgba(235,87,87,0.2)",
+                        backgroundColor: "color-mix(in srgb, var(--color-danger) 6%, transparent)",
+                        border: "1px solid color-mix(in srgb, var(--color-danger) 20%, transparent)",
                         borderRadius: "8px",
                         marginBottom: "0.25rem",
                         alignItems: "flex-start",

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import AnimatedBackground from "@/components/AnimatedBackground";
+import { AnimatedBackground } from "@/components/AnimatedBackground";
+import { Providers } from "@/components/Providers";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -34,13 +36,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${jakarta.variable} ${jetbrainsMono.variable} antialiased min-h-screen`}
-        style={{ backgroundColor: "#060B18", color: "#F0F4FF" }}
       >
-        <AnimatedBackground />
-        {children}
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          <AnimatedBackground />
+          <Providers>{children}</Providers>
+        </ThemeProvider>
       </body>
     </html>
   );

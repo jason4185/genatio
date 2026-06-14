@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { CheckCircle, XCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 const RADIUS = 36;
@@ -89,23 +89,6 @@ function AnimatedScoreRing({
   );
 }
 
-const STRENGTHS = [
-  "Repository is public with recent commit activity",
-  "Detailed story with clear project goals",
-  "Live URL loads with functional content",
-];
-
-const IMPROVEMENTS_APPROVED = [
-  "No license file found in repository",
-  "Community engagement metrics are low",
-];
-
-const IMPROVEMENTS_REJECTED = [
-  "Repository has no recent commits in the past 6 months",
-  "Project description is too brief to assess intent",
-  "Live URL returned a 404 or did not load",
-  "No verifiable open source license present",
-];
 
 function VerifyContent() {
   const searchParams = useSearchParams();
@@ -122,8 +105,6 @@ function VerifyContent() {
   const VerdictIcon = approved ? CheckCircle : XCircle;
   const stateKey = approved ? "approved" : "rejected";
 
-  const improvements = approved ? IMPROVEMENTS_APPROVED : IMPROVEMENTS_REJECTED;
-
   const cardStyle: React.CSSProperties = {
     backgroundColor: "rgba(var(--color-surface-rgb), 0.7)",
     backdropFilter: "blur(16px)",
@@ -131,16 +112,6 @@ function VerifyContent() {
     border: "1px solid var(--color-border-subtle)",
     borderRadius: "12px",
     padding: "1.5rem",
-  };
-
-  const bezier: [number, number, number, number] = [0.16, 1, 0.3, 1];
-  const fadeUp = {
-    hidden: { opacity: 0, y: 16 },
-    visible: (delay: number) => ({
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.45, ease: bezier, delay },
-    }),
   };
 
   return (
@@ -211,7 +182,7 @@ function VerifyContent() {
                 fontWeight: 700,
                 color: accentColor,
                 letterSpacing: "0.1em",
-                border: `1px solid ${approved ? "rgba(39,174,96,0.25)" : "rgba(235,87,87,0.25)"}`,
+                border: `1px solid ${approved ? "color-mix(in srgb, var(--color-success) 25%, transparent)" : "color-mix(in srgb, var(--color-danger) 25%, transparent)"}`,
                 borderRadius: "100px",
                 padding: "0.2rem 0.75rem",
                 alignSelf: "center",
@@ -265,112 +236,11 @@ function VerifyContent() {
           )}
         </motion.div>
 
-        {/* ── Strengths (approved only) ── */}
-        {approved && (
-          <motion.div
-            style={cardStyle}
-            custom={0}
-            variants={fadeUp}
-            initial="hidden"
-            animate="visible"
-            transition={{ delay: 2.1 }}
-          >
-            <p
-              style={{
-                fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-                fontSize: "0.6875rem",
-                fontWeight: 700,
-                color: "var(--color-success)",
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                margin: "0 0 1rem",
-              }}
-            >
-              Strengths
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              {STRENGTHS.map((item, i) => (
-                <motion.div
-                  key={item}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 2.15 + i * 0.1 }}
-                  style={{ display: "flex", alignItems: "flex-start", gap: "0.625rem" }}
-                >
-                  <CheckCircle size={15} color="var(--color-success)" style={{ flexShrink: 0, marginTop: "1px" }} />
-                  <span
-                    style={{
-                      fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                      fontSize: "0.9rem",
-                      color: "var(--color-text-secondary)",
-                      lineHeight: 1.55,
-                    }}
-                  >
-                    {item}
-                  </span>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── Areas for improvement ── */}
-        <motion.div
-          style={cardStyle}
-          custom={approved ? 0.1 : 0}
-          variants={fadeUp}
-          initial="hidden"
-          animate="visible"
-          transition={{ delay: approved ? 2.25 : 2.1 }}
-        >
-          <p
-            style={{
-              fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-              fontSize: "0.6875rem",
-              fontWeight: 700,
-              color: "var(--color-text-muted)",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              margin: "0 0 1rem",
-            }}
-          >
-            Areas for Improvement
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {improvements.map((item, i) => (
-              <motion.div
-                key={item}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{
-                  duration: 0.4,
-                  ease: [0.16, 1, 0.3, 1],
-                  delay: (approved ? 2.3 : 2.15) + i * 0.1,
-                }}
-                style={{ display: "flex", alignItems: "flex-start", gap: "0.625rem" }}
-              >
-                <AlertTriangle size={15} color="var(--color-text-muted)" style={{ flexShrink: 0, marginTop: "1px" }} />
-                <span
-                  style={{
-                    fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                    fontSize: "0.9rem",
-                    color: "var(--color-text-secondary)",
-                    lineHeight: 1.55,
-                  }}
-                >
-                  {item}
-                </span>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
         {/* ── CTAs ── */}
         <motion.div
-          custom={approved ? 0.2 : 0.1}
-          variants={fadeUp}
-          initial="hidden"
-          animate="visible"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 2.5 }}
           style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
         >
           <a

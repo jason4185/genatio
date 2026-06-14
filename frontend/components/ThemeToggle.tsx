@@ -73,7 +73,7 @@ export function ThemeToggle() {
               borderRadius: "10px",
               padding: "0.375rem",
               minWidth: "130px",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+              boxShadow: "0 8px 32px rgba(var(--color-background-rgb), 0.4)",
             }}
           >
             {options.map(({ label, value, Icon }) => (
@@ -88,7 +88,7 @@ export function ThemeToggle() {
                   padding: "0.5rem 0.75rem",
                   borderRadius: "6px",
                   border: "none",
-                  backgroundColor: theme === value ? "rgba(45,156,219,0.12)" : "transparent",
+                  backgroundColor: theme === value ? "color-mix(in srgb, var(--color-accent-blue) 12%, transparent)" : "transparent",
                   color: theme === value ? "var(--color-accent-blue)" : "var(--color-text-secondary)",
                   fontFamily: "var(--font-jakarta), system-ui, sans-serif",
                   fontSize: "0.875rem",
@@ -99,7 +99,7 @@ export function ThemeToggle() {
                 }}
                 onMouseEnter={(e) => {
                   if (theme !== value) {
-                    e.currentTarget.style.backgroundColor = "rgba(45,156,219,0.06)";
+                    e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-accent-blue) 6%, transparent)";
                     e.currentTarget.style.color = "var(--color-text-primary)";
                   }
                 }}

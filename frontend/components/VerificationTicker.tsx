@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { useProjects } from "@/hooks/useProjects";
 
 interface TickerItem {
   name: string;
@@ -9,18 +10,6 @@ interface TickerItem {
   status: "ACTIVE" | "REJECTED";
 }
 
-const TICKER_ITEMS: TickerItem[] = [
-  { name: "genazo", score: 73, status: "ACTIVE" },
-  { name: "defi-vault", score: 41, status: "REJECTED" },
-  { name: "layerzero-bridge", score: 88, status: "ACTIVE" },
-  { name: "nft-marketplace", score: 29, status: "REJECTED" },
-  { name: "zkbridge", score: 91, status: "ACTIVE" },
-  { name: "open-grants", score: 77, status: "ACTIVE" },
-  { name: "rug-detector", score: 34, status: "REJECTED" },
-  { name: "defi-analytics", score: 82, status: "ACTIVE" },
-  { name: "cross-chain-swap", score: 66, status: "ACTIVE" },
-  { name: "pump-clone", score: 18, status: "REJECTED" },
-];
 
 function TickerRow({ items }: { items: TickerItem[] }) {
   return (
@@ -33,7 +22,7 @@ function TickerRow({ items }: { items: TickerItem[] }) {
             alignItems: "center",
             gap: "0.5rem",
             padding: "0 2rem",
-            borderRight: "1px solid #1E2D45",
+            borderRight: "1px solid var(--color-border-subtle)",
             whiteSpace: "nowrap",
           }}
         >
@@ -41,29 +30,29 @@ function TickerRow({ items }: { items: TickerItem[] }) {
             style={{
               fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
               fontSize: "0.8125rem",
-              color: "#8899AA",
+              color: "var(--color-text-secondary)",
               letterSpacing: "0.02em",
             }}
           >
             {item.name}
           </span>
-          <span style={{ color: "#1E2D45" }}>·</span>
+          <span style={{ color: "var(--color-border-subtle)" }}>·</span>
           <span
             style={{
               fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
               fontSize: "0.8125rem",
-              color: "#8899AA",
+              color: "var(--color-text-secondary)",
             }}
           >
             Score {item.score}
           </span>
-          <span style={{ color: "#1E2D45" }}>·</span>
+          <span style={{ color: "var(--color-border-subtle)" }}>·</span>
           <span
             style={{
               fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
               fontSize: "0.75rem",
               fontWeight: 700,
-              color: item.status === "ACTIVE" ? "#27AE60" : "#EB5757",
+              color: item.status === "ACTIVE" ? "var(--color-success)" : "var(--color-danger)",
               letterSpacing: "0.06em",
             }}
           >
@@ -75,18 +64,36 @@ function TickerRow({ items }: { items: TickerItem[] }) {
   );
 }
 
+function padToMinLength(items: TickerItem[], min = 8): TickerItem[] {
+  if (items.length === 0) return items;
+  const result: TickerItem[] = [];
+  while (result.length < min) result.push(...items);
+  return result;
+}
+
 export default function VerificationTicker() {
   const [paused, setPaused] = useState(false);
-  const doubled = [...TICKER_ITEMS, ...TICKER_ITEMS];
+  const { projects, loading } = useProjects("active");
+
+  if (loading || projects.length === 0) return null;
+
+  const rawItems: TickerItem[] = projects.map((p) => ({
+    name: p.title,
+    score: Math.round(Number(p.score)),
+    status: p.status?.toUpperCase() === "REJECTED" ? "REJECTED" : "ACTIVE",
+  }));
+
+  const tickerItems = padToMinLength(rawItems, 8);
+  const doubled = [...tickerItems, ...tickerItems];
 
   return (
     <div style={{ width: "100%" }}>
       <div
         style={{
-          backgroundColor: "rgba(12,18,32,0.7)",
+          backgroundColor: "rgba(var(--color-surface-rgb), 0.7)",
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
-          border: "1px solid #1E2D45",
+          border: "1px solid var(--color-border-subtle)",
           borderRadius: "100px",
           padding: "0.625rem 0",
           overflow: "hidden",
@@ -106,10 +113,10 @@ export default function VerificationTicker() {
             display: "flex",
             alignItems: "center",
             gap: "0.375rem",
-            backgroundColor: "#060B18",
+            backgroundColor: "var(--color-background)",
             padding: "0.25rem 0.625rem",
             borderRadius: "100px",
-            border: "1px solid rgba(45,156,219,0.25)",
+            border: "1px solid color-mix(in srgb, var(--color-accent-blue) 25%, transparent)",
           }}
         >
           <span
@@ -117,7 +124,7 @@ export default function VerificationTicker() {
               width: "6px",
               height: "6px",
               borderRadius: "50%",
-              backgroundColor: "#2D9CDB",
+              backgroundColor: "var(--color-accent-blue)",
               display: "block",
               animation: "pulse-live 1.4s ease-in-out infinite",
             }}
@@ -127,7 +134,7 @@ export default function VerificationTicker() {
               fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
               fontSize: "0.6875rem",
               fontWeight: 700,
-              color: "#2D9CDB",
+              color: "var(--color-accent-blue)",
               letterSpacing: "0.1em",
             }}
           >
@@ -143,7 +150,7 @@ export default function VerificationTicker() {
             top: 0,
             bottom: 0,
             width: "110px",
-            background: "linear-gradient(to right, rgba(6,11,24,1) 0%, transparent 100%)",
+            background: "linear-gradient(to right, rgb(var(--color-background-rgb)) 0%, transparent 100%)",
             zIndex: 5,
             pointerEvents: "none",
           }}
@@ -156,7 +163,7 @@ export default function VerificationTicker() {
             top: 0,
             bottom: 0,
             width: "80px",
-            background: "linear-gradient(to left, rgba(6,11,24,1) 0%, transparent 100%)",
+            background: "linear-gradient(to left, rgb(var(--color-background-rgb)) 0%, transparent 100%)",
             zIndex: 5,
             pointerEvents: "none",
           }}
@@ -164,7 +171,7 @@ export default function VerificationTicker() {
 
         {/* Scrolling content */}
         <motion.div
-          style={{ display: "flex", paddingLeft: "130px" }}
+          style={{ display: "flex" }}
           animate={{ x: paused ? undefined : [0, "-50%"] }}
           transition={
             paused

@@ -1,90 +1,94 @@
-"use client";
+'use client'
+import { useEffect, useRef } from 'react'
 
-import { useEffect, useRef } from "react";
+interface Orb {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  r: number
+  color: string
+}
 
-export default function AnimatedBackground() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+export function AnimatedBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    console.log('[AnimatedBackground] canvas mounted, size will be', window.innerWidth, 'x', window.innerHeight)
 
-    let animationId: number;
+    const orbs: Orb[] = [
+      { x: 0.2, y: 0.3, vx: 0.0003, vy: 0.0002, r: 0.55, color: '45, 156, 219' },
+      { x: 0.8, y: 0.6, vx: -0.0002, vy: 0.0003, r: 0.5, color: '0, 198, 255' },
+      { x: 0.5, y: 0.8, vx: 0.0001, vy: -0.0002, r: 0.45, color: '29, 78, 216' },
+    ]
 
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener("resize", resize);
+    let animId: number
 
-    const animate = () => {
-      const w = canvas.width;
-      const h = canvas.height;
-      const t = Date.now() / 1000;
+    function resize() {
+      if (!canvas) return
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+    }
 
-      ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = "#060B18";
-      ctx.fillRect(0, 0, w, h);
+    function draw() {
+      if (!canvas || !ctx) return
 
-      // Orb 1: #1a3a5c — drifts top-left → bottom-right over 20s
-      const o1x = (0.1 + 0.55 * (0.5 + 0.5 * Math.sin((2 * Math.PI * t) / 20))) * w;
-      const o1y = (0.1 + 0.55 * (0.5 + 0.5 * Math.cos((2 * Math.PI * t) / 20))) * h;
-      const g1 = ctx.createRadialGradient(o1x, o1y, 0, o1x, o1y, 0.55 * Math.min(w, h));
-      g1.addColorStop(0, "rgba(26,58,92,0.15)");
-      g1.addColorStop(1, "rgba(26,58,92,0)");
-      ctx.fillStyle = g1;
-      ctx.beginPath();
-      ctx.arc(o1x, o1y, 0.55 * Math.min(w, h), 0, Math.PI * 2);
-      ctx.fill();
+      const bgColor = getComputedStyle(document.documentElement)
+        .getPropertyValue('--color-background').trim()
+      ctx.fillStyle = bgColor || '#060B18'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Orb 2: #0a1f3d — drifts top-right → bottom-left over 25s
-      const o2x = (0.9 - 0.6 * (0.5 + 0.5 * Math.sin((2 * Math.PI * t) / 25))) * w;
-      const o2y = (0.1 + 0.6 * (0.5 + 0.5 * Math.sin((2 * Math.PI * t) / 25 + 1.2))) * h;
-      const g2 = ctx.createRadialGradient(o2x, o2y, 0, o2x, o2y, 0.5 * Math.min(w, h));
-      g2.addColorStop(0, "rgba(10,31,61,0.20)");
-      g2.addColorStop(1, "rgba(10,31,61,0)");
-      ctx.fillStyle = g2;
-      ctx.beginPath();
-      ctx.arc(o2x, o2y, 0.5 * Math.min(w, h), 0, Math.PI * 2);
-      ctx.fill();
+      orbs.forEach(orb => {
+        orb.x += orb.vx
+        orb.y += orb.vy
 
-      // Orb 3: #162440 — pulses gently in center over 15s
-      const pulseR = 0.4 * (1 + 0.1 * Math.sin((2 * Math.PI * t) / 15));
-      const g3 = ctx.createRadialGradient(0.5 * w, 0.55 * h, 0, 0.5 * w, 0.55 * h, pulseR * Math.min(w, h));
-      g3.addColorStop(0, "rgba(22,36,64,0.12)");
-      g3.addColorStop(1, "rgba(22,36,64,0)");
-      ctx.fillStyle = g3;
-      ctx.beginPath();
-      ctx.arc(0.5 * w, 0.55 * h, pulseR * Math.min(w, h), 0, Math.PI * 2);
-      ctx.fill();
+        if (orb.x < 0 || orb.x > 1) orb.vx *= -1
+        if (orb.y < 0 || orb.y > 1) orb.vy *= -1
 
-      animationId = requestAnimationFrame(animate);
-    };
+        const cx = orb.x * canvas.width
+        const cy = orb.y * canvas.height
+        const radius = orb.r * Math.min(canvas.width, canvas.height)
 
-    animate();
+        const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius)
+        gradient.addColorStop(0, `rgba(${orb.color}, 0.35)`)
+        gradient.addColorStop(0.5, `rgba(${orb.color}, 0.12)`)
+        gradient.addColorStop(1, `rgba(${orb.color}, 0)`)
+
+        ctx.fillStyle = gradient
+        ctx.beginPath()
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+        ctx.fill()
+      })
+
+      animId = requestAnimationFrame(draw)
+    }
+
+    resize()
+    draw()
+    window.addEventListener('resize', resize)
 
     return () => {
-      cancelAnimationFrame(animationId);
-      window.removeEventListener("resize", resize);
-    };
-  }, []);
+      cancelAnimationFrame(animId)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
 
   return (
     <canvas
       ref={canvasRef}
-      aria-hidden="true"
       style={{
-        position: "fixed",
+        position: 'fixed',
         top: 0,
         left: 0,
-        width: "100%",
-        height: "100%",
+        width: '100%',
+        height: '100%',
         zIndex: -1,
-        pointerEvents: "none",
+        pointerEvents: 'none',
       }}
     />
-  );
+  )
 }

@@ -3,10 +3,14 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { ThemeToggle } from "./ThemeToggle";
+import { NotificationBell } from "./NotificationBell";
 
 const navLinks = [
-  { label: "Browse", href: "#projects" },
-  { label: "Submit Project", href: "#submit" },
+  { label: "Home", href: "/" },
+  { label: "Browse", href: "/browse" },
+  { label: "Submit Project", href: "/submit" },
 ];
 
 export default function Navbar() {
@@ -28,8 +32,8 @@ export default function Navbar() {
         right: 0,
         zIndex: 50,
         transition: "all 0.3s ease",
-        borderBottom: scrolled ? "1px solid rgba(30,45,69,0.8)" : "1px solid transparent",
-        backgroundColor: scrolled ? "rgba(6,11,24,0.88)" : "transparent",
+        borderBottom: scrolled ? "1px solid var(--color-border-subtle)" : "1px solid transparent",
+        backgroundColor: scrolled ? "rgba(var(--color-background-rgb), 0.88)" : "transparent",
         backdropFilter: scrolled ? "blur(20px)" : "none",
         WebkitBackdropFilter: scrolled ? "blur(20px)" : "none",
       }}
@@ -52,7 +56,7 @@ export default function Navbar() {
             fontFamily: "var(--font-jakarta), system-ui, sans-serif",
             fontSize: "1.375rem",
             fontWeight: 700,
-            color: "#F0F4FF",
+            color: "var(--color-text-primary)",
             textDecoration: "none",
             letterSpacing: "-0.03em",
             display: "flex",
@@ -60,14 +64,14 @@ export default function Navbar() {
             gap: "1px",
           }}
         >
-          <span style={{ color: "#2D9CDB" }}>G</span>
+          <span style={{ color: "var(--color-accent-blue)" }}>G</span>
           <span>enatio</span>
           <span
             style={{
               width: "5px",
               height: "5px",
               borderRadius: "50%",
-              backgroundColor: "#2D9CDB",
+              backgroundColor: "var(--color-accent-blue)",
               display: "inline-block",
               marginLeft: "2px",
               marginBottom: "2px",
@@ -78,7 +82,7 @@ export default function Navbar() {
 
         {/* Desktop links */}
         <div
-          style={{ display: "flex", alignItems: "center", gap: "2rem" }}
+          style={{ alignItems: "center", gap: "2rem" }}
           className="hidden md:flex"
         >
           {navLinks.map((link) => (
@@ -89,35 +93,20 @@ export default function Navbar() {
                 fontFamily: "var(--font-jakarta), system-ui, sans-serif",
                 fontSize: "0.9rem",
                 fontWeight: 500,
-                color: "#8899AA",
+                color: "var(--color-text-secondary)",
                 textDecoration: "none",
                 transition: "color 0.2s ease",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#F0F4FF")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "#8899AA")}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-text-primary)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-secondary)")}
             >
               {link.label}
             </a>
           ))}
 
-          <motion.button
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.97 }}
-            style={{
-              fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-              fontSize: "0.875rem",
-              fontWeight: 600,
-              color: "#F0F4FF",
-              backgroundColor: "#2D9CDB",
-              border: "none",
-              borderRadius: "8px",
-              padding: "0.5rem 1.125rem",
-              cursor: "pointer",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            Connect Wallet
-          </motion.button>
+          <ThemeToggle />
+          <NotificationBell />
+          <ConnectButton />
         </div>
 
         {/* Mobile hamburger */}
@@ -127,7 +116,7 @@ export default function Navbar() {
           style={{
             background: "transparent",
             border: "none",
-            color: "#F0F4FF",
+            color: "var(--color-text-primary)",
             cursor: "pointer",
             padding: "0.25rem",
           }}
@@ -146,9 +135,9 @@ export default function Navbar() {
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
             style={{
-              backgroundColor: "rgba(6,11,24,0.97)",
+              backgroundColor: "rgba(var(--color-background-rgb), 0.97)",
               backdropFilter: "blur(20px)",
-              borderTop: "1px solid #1E2D45",
+              borderTop: "1px solid var(--color-border-subtle)",
               overflow: "hidden",
             }}
             className="md:hidden"
@@ -170,32 +159,18 @@ export default function Navbar() {
                     fontFamily: "var(--font-jakarta), system-ui, sans-serif",
                     fontSize: "1rem",
                     fontWeight: 500,
-                    color: "#8899AA",
+                    color: "var(--color-text-secondary)",
                     textDecoration: "none",
                     padding: "0.5rem 0",
-                    borderBottom: "1px solid #1E2D45",
+                    borderBottom: "1px solid var(--color-border-subtle)",
                   }}
                 >
                   {link.label}
                 </a>
               ))}
-              <button
-                style={{
-                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                  fontSize: "0.9rem",
-                  fontWeight: 600,
-                  color: "#F0F4FF",
-                  backgroundColor: "#2D9CDB",
-                  border: "none",
-                  borderRadius: "8px",
-                  padding: "0.625rem 1.25rem",
-                  cursor: "pointer",
-                  marginTop: "0.25rem",
-                  width: "fit-content",
-                }}
-              >
-                Connect Wallet
-              </button>
+              <div style={{ marginTop: "0.25rem" }}>
+                <ConnectButton />
+              </div>
             </div>
           </motion.div>
         )}

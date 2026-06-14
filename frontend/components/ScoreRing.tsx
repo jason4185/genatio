@@ -19,7 +19,7 @@ export default function ScoreRing({ score, size = 80 }: ScoreRingProps) {
 
   const clamped = Math.max(0, Math.min(100, score));
   const dashOffset = CIRC * (1 - clamped / 100);
-  const strokeColor = clamped >= 80 ? "#27AE60" : "#2D9CDB";
+  const strokeColor = clamped >= 80 ? "var(--color-success)" : "var(--color-accent-blue)";
 
   return (
     <svg
@@ -35,7 +35,7 @@ export default function ScoreRing({ score, size = 80 }: ScoreRingProps) {
         cy={VIEW / 2}
         r={RADIUS}
         fill="none"
-        stroke="#1E2D45"
+        stroke="var(--color-border-subtle)"
         strokeWidth={STROKE_WIDTH}
       />
       {/* Progress arc */}
@@ -63,7 +63,7 @@ export default function ScoreRing({ score, size = 80 }: ScoreRingProps) {
           fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
           fontSize: "20px",
           fontWeight: 700,
-          fill: "#F0F4FF",
+          fill: "var(--color-text-primary)",
         }}
       >
         {clamped}
