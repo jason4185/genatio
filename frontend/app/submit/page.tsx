@@ -348,7 +348,7 @@ export default function SubmitPage() {
 
       // Wait for GenLayer consensus to accept and capture receipt
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const receipt = await glClient.waitForTransactionReceipt({ hash, status: "ACCEPTED" as any });
+      const receipt = await glClient.waitForTransactionReceipt({ hash, status: "ACCEPTED" as any, timeout: 300000 });
 
       console.log("Full receipt:", JSON.stringify(receipt, null, 2));
 
@@ -374,9 +374,12 @@ export default function SubmitPage() {
       router.push(`/verify?${params}`);
     } catch (err: unknown) {
       setSubmitting(false);
-      const msg =
-        err instanceof Error ? err.message : "Transaction failed. Please try again.";
-      setSubmitError(msg);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errMsg.includes("Timed out")) {
+        setSubmitError("Verification is taking longer than expected. Please check back in a few minutes — your project may still be processing.");
+      } else {
+        setSubmitError(errMsg);
+      }
     }
   };
 
