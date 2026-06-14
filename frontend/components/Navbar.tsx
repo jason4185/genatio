@@ -6,6 +6,7 @@ import { Menu, X } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationBell } from "./NotificationBell";
+import { Logo } from "./Logo";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -50,34 +51,8 @@ export default function Navbar() {
         }}
       >
         {/* Logo */}
-        <a
-          href="/"
-          style={{
-            fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-            fontSize: "1.375rem",
-            fontWeight: 700,
-            color: "var(--color-text-primary)",
-            textDecoration: "none",
-            letterSpacing: "-0.03em",
-            display: "flex",
-            alignItems: "baseline",
-            gap: "1px",
-          }}
-        >
-          <span style={{ color: "var(--color-accent-blue)" }}>G</span>
-          <span>enatio</span>
-          <span
-            style={{
-              width: "5px",
-              height: "5px",
-              borderRadius: "50%",
-              backgroundColor: "var(--color-accent-blue)",
-              display: "inline-block",
-              marginLeft: "2px",
-              marginBottom: "2px",
-              flexShrink: 0,
-            }}
-          />
+        <a href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
+          <Logo size={26} />
         </a>
 
         {/* Desktop links */}

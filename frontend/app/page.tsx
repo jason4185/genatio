@@ -11,6 +11,7 @@ import { LiveStatsCard } from "@/components/LiveStatsCard";
 import { useProjects } from "@/hooks/useProjects";
 import { useStats } from "@/hooks/useStats";
 import type { Project } from "@/hooks/useProjects";
+import { Logo } from "@/components/Logo";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -1007,33 +1008,9 @@ export default function LandingPage() {
             >
               {/* Logo + tagline */}
               <div>
-                <p
-                  style={{
-                    fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                    fontSize: "1.25rem",
-                    fontWeight: 700,
-                    color: "var(--color-text-primary)",
-                    margin: "0 0 0.5rem",
-                    letterSpacing: "-0.03em",
-                    display: "flex",
-                    alignItems: "baseline",
-                    gap: "1px",
-                  }}
-                >
-                  <span style={{ color: "var(--color-accent-blue)" }}>G</span>
-                  <span>enatio</span>
-                  <span
-                    style={{
-                      width: "4px",
-                      height: "4px",
-                      borderRadius: "50%",
-                      backgroundColor: "var(--color-accent-blue)",
-                      display: "inline-block",
-                      marginLeft: "2px",
-                      marginBottom: "1px",
-                    }}
-                  />
-                </p>
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <Logo size={22} />
+                </div>
                 <p
                   style={{
                     fontFamily: "var(--font-jakarta), system-ui, sans-serif",

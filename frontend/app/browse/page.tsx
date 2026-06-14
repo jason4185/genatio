@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import ProjectCard from "@/components/ProjectCard";
 import { useProjects } from "@/hooks/useProjects";
 import type { Project } from "@/hooks/useProjects";
+import { Logo } from "@/components/Logo";
 
 type FilterTab = "all" | "active" | "ending-soon" | "recently-verified" | "ended";
 type SortKey = "recently-added" | "highest-score" | "most-funded" | "ending-soon";
@@ -673,33 +674,9 @@ export default function BrowsePage() {
               style={{ marginBottom: "3rem", alignItems: "start" }}
             >
               <div>
-                <p
-                  style={{
-                    fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                    fontSize: "1.25rem",
-                    fontWeight: 700,
-                    color: "var(--color-text-primary)",
-                    margin: "0 0 0.5rem",
-                    letterSpacing: "-0.03em",
-                    display: "flex",
-                    alignItems: "baseline",
-                    gap: "1px",
-                  }}
-                >
-                  <span style={{ color: "var(--color-accent-blue)" }}>G</span>
-                  <span>enatio</span>
-                  <span
-                    style={{
-                      width: "4px",
-                      height: "4px",
-                      borderRadius: "50%",
-                      backgroundColor: "var(--color-accent-blue)",
-                      display: "inline-block",
-                      marginLeft: "2px",
-                      marginBottom: "1px",
-                    }}
-                  />
-                </p>
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <Logo size={22} />
+                </div>
                 <p
                   style={{
                     fontFamily: "var(--font-jakarta), system-ui, sans-serif",

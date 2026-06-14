@@ -12,6 +12,7 @@ import { testnetBradbury as glTestnetBradbury } from "genlayer-js/chains";
 import type { Address } from "viem";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
+import { Logo } from "@/components/Logo";
 import ScoreRing from "@/components/ScoreRing";
 import FundingProgress from "@/components/FundingProgress";
 import { useProject } from "@/hooks/useProject";
@@ -1020,11 +1021,9 @@ export default function ProjectDetailPage() {
           <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
             <div className="project-footer-grid" style={{ marginBottom: "3rem", alignItems: "start" }}>
               <div>
-                <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "1.25rem", fontWeight: 700, color: "var(--color-text-primary)", margin: "0 0 0.5rem", letterSpacing: "-0.03em", display: "flex", alignItems: "baseline", gap: "1px" }}>
-                  <span style={{ color: "var(--color-accent-blue)" }}>G</span>
-                  <span>enatio</span>
-                  <span style={{ width: "4px", height: "4px", borderRadius: "50%", backgroundColor: "var(--color-accent-blue)", display: "inline-block", marginLeft: "2px", marginBottom: "1px" }} />
-                </p>
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <Logo size={22} />
+                </div>
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6, maxWidth: "220px" }}>
                   Trustless grants for open source builders.
                 </p>

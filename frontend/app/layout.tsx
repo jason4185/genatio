@@ -22,6 +22,9 @@ export const metadata: Metadata = {
   title: "Genatio — Trustless Grants for Open Source",
   description:
     "Intelligent Contracts on GenLayer verify every open source project on-chain. No humans. No middlemen. The chain decides.",
+  icons: {
+    icon: "/favicon.svg",
+  },
   openGraph: {
     title: "Genatio — Trustless Grants for Open Source",
     description:
