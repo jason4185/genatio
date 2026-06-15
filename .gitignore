@@ -5,3 +5,4 @@ dist
 frontend/dist
 frontend/node_modules
 scripts/
+.vercel
