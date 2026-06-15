@@ -65,24 +65,29 @@ class GenatioDispute(gl.Contract):
 
             try:
                 result = gl.nondet.exec_prompt(
-                    f"""You are reviewing a flag raised against an open source project on Genatio.
+                    f"""You are reviewing a community flag against an open source project on Genatio.
+
+FLAG REASONS: {flag_reasons}
 
 PROJECT DETAILS:
 Title: {project_title}
 Story: {project_story}
 Funding purpose: {project_funding_purpose}
-GitHub repo: {project_github}
+GitHub: {project_github}
 
 GITHUB DATA:
-Repo info: {github_data}
-Recent commits: {commits_data}
+{github_data}
+{commits_data}
 
-FLAG REASONS RAISED:
-{flag_reasons}
+IMPORTANT RULES:
+- Only return VALID if there is CLEAR and STRONG evidence of fraud or deception
+- A missing repo description, low stars, or no license alone is NOT fraud
+- VALID requires: fake repo, non-existent repo, story completely unrelated to code, or multiple deliberate lies
+- INVALID if the project appears to be a real legitimate open source project even if incomplete
+- Give benefit of the doubt to real projects
 
-Check each flag reason against the evidence from GitHub data.
-If the flag reasons are supported by evidence reply exactly: VALID - one sentence reason
-If the project appears legitimate and flag is unfounded reply exactly: INVALID - one sentence reason"""
+If flag reasons are confirmed by strong evidence of fraud: reply exactly VALID - one sentence reason
+If project appears legitimate or flag reasons are minor/incomplete issues: reply exactly INVALID - one sentence reason"""
                 )
                 result_str = str(result).strip() if result else ""
                 if not result_str:
