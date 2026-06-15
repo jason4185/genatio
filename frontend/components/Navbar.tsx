@@ -134,7 +134,7 @@ export default function Navbar() {
 
           {isConnected && (
             <a
-              href="/status"
+              href="/dashboard"
               className="nav-link"
               style={{
                 fontFamily: "var(--font-jakarta), system-ui, sans-serif",
@@ -147,7 +147,7 @@ export default function Navbar() {
               onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-text-primary)")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-secondary)")}
             >
-              My Projects
+              My Dashboard
             </a>
           )}
 
@@ -280,7 +280,7 @@ export default function Navbar() {
 
                 {isConnected && (
                   <motion.a
-                    href="/status"
+                    href="/dashboard"
                     variants={menuItemVariants}
                     onClick={() => setMenuOpen(false)}
                     style={{
@@ -296,7 +296,7 @@ export default function Navbar() {
                     onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-text-primary)")}
                     onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-secondary)")}
                   >
-                    My Projects
+                    My Dashboard
                   </motion.a>
                 )}
 

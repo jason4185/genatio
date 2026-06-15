@@ -409,7 +409,7 @@ function StatusContent() {
                   color: "var(--color-text-secondary)",
                   margin: 0,
                 }}>
-                  This takes 2–5 minutes. You can safely close this tab and check My Projects later.
+                  This takes 2–5 minutes. You can safely close this tab and check your Dashboard later.
                 </p>
               </div>
               <div style={{ display: "flex", gap: "0.375rem" }}>
@@ -468,10 +468,10 @@ function StatusContent() {
         </section>
       )}
 
-      {/* ── Section 2: My Projects ── */}
+      {/* ── Section 2: My Dashboard ── */}
       {isConnected && (
         <section>
-          <p style={sectionTitle}>My Projects</p>
+          <p style={sectionTitle}>My Dashboard</p>
 
           {projectsLoading && (
             <div style={{ display: "flex", justifyContent: "center", padding: "2rem" }}>
@@ -629,7 +629,7 @@ export default function StatusPage() {
               letterSpacing: "-0.03em",
               margin: 0,
             }}>
-              My Projects
+              My Dashboard
             </h1>
           </div>
 
