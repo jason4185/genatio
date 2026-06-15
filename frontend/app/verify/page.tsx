@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useAccount } from "wagmi";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, XCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -93,7 +92,6 @@ function AnimatedScoreRing({
 
 function VerifyContent() {
   const searchParams = useSearchParams();
-  const { address } = useAccount();
 
   const statusParam = searchParams.get("status") ?? "rejected";
   const scoreParam = Number(searchParams.get("score")) || 0;
@@ -101,18 +99,6 @@ function VerifyContent() {
   const titleParam = searchParams.get("title") ?? "Your project";
 
   const approved = statusParam === "active";
-
-  useEffect(() => {
-    if (!approved && address) {
-      try {
-        sessionStorage.setItem(`rejection_${address}`, JSON.stringify({
-          title: titleParam,
-          score: scoreParam,
-          timestamp: Date.now(),
-        }));
-      } catch {}
-    }
-  }, [approved, address, titleParam, scoreParam]);
   const score = scoreParam;
 
   const accentColor = approved ? "var(--color-success)" : "var(--color-danger)";
@@ -250,6 +236,141 @@ function VerifyContent() {
             </motion.p>
           )}
         </motion.div>
+
+        {/* ── Strengths & areas (approved only) ── */}
+        {approved && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 1.8 }}
+            style={{
+              backgroundColor: "rgba(var(--color-surface-rgb), 0.7)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              border: "1px solid var(--color-border-subtle)",
+              borderRadius: "12px",
+              padding: "1.5rem",
+              display: "flex",
+              flexDirection: "column",
+              gap: "1.25rem",
+            }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+              <p
+                style={{
+                  fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+                  fontSize: "0.6875rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "var(--color-success)",
+                  margin: 0,
+                }}
+              >
+                Strengths
+              </p>
+              {[
+                "GitHub repository is public with recent activity",
+                "Project story clearly explains the goals",
+                "Funding purpose has specific deliverables",
+              ].map((item, i) => (
+                <motion.div
+                  key={item}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 2.0 + i * 0.1 }}
+                  style={{ display: "flex", alignItems: "flex-start", gap: "0.625rem" }}
+                >
+                  <span
+                    style={{
+                      width: "16px",
+                      height: "16px",
+                      borderRadius: "50%",
+                      backgroundColor: "color-mix(in srgb, var(--color-success) 15%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--color-success) 30%, transparent)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      marginTop: "2px",
+                      fontSize: "0.5625rem",
+                      color: "var(--color-success)",
+                    }}
+                  >
+                    ✓
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                      fontSize: "0.875rem",
+                      color: "var(--color-text-secondary)",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {item}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+
+            <div style={{ borderTop: "1px solid var(--color-border-subtle)", paddingTop: "1.25rem", display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+              <p
+                style={{
+                  fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+                  fontSize: "0.6875rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "var(--color-text-muted)",
+                  margin: 0,
+                }}
+              >
+                Areas for improvement
+              </p>
+              {[
+                "Consider adding more community engagement",
+                "Keep your README updated as the project grows",
+              ].map((item, i) => (
+                <motion.div
+                  key={item}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 2.3 + i * 0.1 }}
+                  style={{ display: "flex", alignItems: "flex-start", gap: "0.625rem" }}
+                >
+                  <span
+                    style={{
+                      width: "16px",
+                      height: "16px",
+                      borderRadius: "50%",
+                      backgroundColor: "color-mix(in srgb, var(--color-text-muted) 10%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--color-text-muted) 20%, transparent)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      marginTop: "2px",
+                      fontSize: "0.5625rem",
+                      color: "var(--color-text-muted)",
+                    }}
+                  >
+                    →
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                      fontSize: "0.875rem",
+                      color: "var(--color-text-muted)",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {item}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* ── CTAs ── */}
         <motion.div

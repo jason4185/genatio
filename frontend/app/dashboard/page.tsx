@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useAccount } from "wagmi";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion, type Variants } from "framer-motion";
 import { Loader2, Clock, ExternalLink, RefreshCw } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -313,25 +314,25 @@ function DashboardContent() {
           backgroundColor: "rgba(var(--color-surface-rgb), 0.8)",
           border: "1px solid var(--color-border-subtle)",
           borderRadius: "12px",
-          padding: "3rem 2rem",
+          padding: "4rem 2rem",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           textAlign: "center",
-          gap: "1rem",
+          gap: "1.5rem",
         }}
       >
         <p
           style={{
             fontFamily: "var(--font-jakarta), system-ui, sans-serif",
             fontSize: "1rem",
-            fontWeight: 600,
-            color: "var(--color-text-primary)",
+            color: "var(--color-text-secondary)",
             margin: 0,
           }}
         >
-          Connect your wallet to see your projects
+          Connect your wallet to view your dashboard
         </p>
+        <ConnectButton />
       </motion.div>
     );
   }

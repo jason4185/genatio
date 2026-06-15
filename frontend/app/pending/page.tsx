@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import { genLayerClient } from "@/lib/genatio";
 
@@ -67,6 +67,46 @@ function SpinnerRing({ size = 64 }: { size?: number }) {
   );
 }
 
+function WaitingStatus({ startTime }: { startTime: number }) {
+  const [minutes, setMinutes] = useState(0);
+
+  useEffect(() => {
+    const tick = () => setMinutes(Math.floor((Date.now() - startTime) / 60000));
+    tick();
+    const id = setInterval(tick, 15000);
+    return () => clearInterval(id);
+  }, [startTime]);
+
+  let message: string;
+  let color: string;
+  if (minutes < 2) {
+    message = "This takes 2–5 minutes";
+    color = "var(--color-text-muted)";
+  } else if (minutes < 5) {
+    message = "Still verifying... taking a bit longer than usual";
+    color = "var(--color-accent-blue)";
+  } else {
+    message = "Taking longer than expected. You can close this tab and check My Dashboard later.";
+    color = "var(--color-text-secondary)";
+  }
+
+  return (
+    <p
+      style={{
+        fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+        fontSize: "0.8125rem",
+        color,
+        margin: "0.25rem 0 0",
+        textAlign: "center",
+        lineHeight: 1.5,
+        transition: "color 0.4s ease",
+      }}
+    >
+      {message}
+    </p>
+  );
+}
+
 function PendingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -75,7 +115,6 @@ function PendingContent() {
   const tx = searchParams.get("tx") ?? "";
   const title = searchParams.get("title") ?? "your project";
 
-  const [timedOut, setTimedOut] = useState(false);
   const [startTime] = useState(() => Date.now());
   const pollingRef = useRef(false);
   const redirectedRef = useRef(false);
@@ -128,7 +167,7 @@ function PendingContent() {
         redirectedRef.current = true;
         router.push(`/verify?${params.toString()}`);
       } catch {
-        setTimedOut(true);
+        // network error — keep showing the waiting state; background refresh may still succeed
       }
     })();
   }, [tx, title, address, router]);
@@ -189,220 +228,96 @@ function PendingContent() {
         gap: "1.25rem",
       }}
     >
-      <AnimatePresence mode="wait">
-        {!timedOut ? (
-          <motion.div
-            key="waiting"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem", textAlign: "center" }}
+      <motion.div
+        style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem", textAlign: "center" }}
+      >
+        <SpinnerRing size={64} />
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+          <h1
+            style={{
+              fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+              fontSize: "clamp(1.25rem, 3.5vw, 1.625rem)",
+              fontWeight: 700,
+              color: "var(--color-text-primary)",
+              letterSpacing: "-0.03em",
+              lineHeight: 1.2,
+              margin: 0,
+            }}
           >
-            <SpinnerRing size={64} />
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-              <h1
-                style={{
-                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                  fontSize: "clamp(1.25rem, 3.5vw, 1.625rem)",
-                  fontWeight: 700,
-                  color: "var(--color-text-primary)",
-                  letterSpacing: "-0.03em",
-                  lineHeight: 1.2,
-                  margin: 0,
-                }}
-              >
-                Verifying {title}
-              </h1>
-              <p
-                style={{
-                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                  fontSize: "0.9375rem",
-                  color: "var(--color-text-secondary)",
-                  margin: 0,
-                  lineHeight: 1.6,
-                }}
-              >
-                GenLayer Intelligent Contracts are reviewing your project
-              </p>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.5rem",
-                width: "100%",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "0.625rem 0.875rem",
-                  backgroundColor: "rgba(var(--color-background-rgb), 0.6)",
-                  borderRadius: "8px",
-                  border: "1px solid var(--color-border-subtle)",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                    fontSize: "0.8125rem",
-                    color: "var(--color-text-muted)",
-                  }}
-                >
-                  Transaction
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-                    fontSize: "0.8125rem",
-                    color: "var(--color-text-secondary)",
-                  }}
-                >
-                  {truncatedTx}
-                </span>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "0.625rem 0.875rem",
-                  backgroundColor: "rgba(var(--color-background-rgb), 0.6)",
-                  borderRadius: "8px",
-                  border: "1px solid var(--color-border-subtle)",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                    fontSize: "0.8125rem",
-                    color: "var(--color-text-muted)",
-                  }}
-                >
-                  Time elapsed
-                </span>
-                <span
-                  style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--color-text-secondary)",
-                  }}
-                >
-                  <ElapsedTimer startTime={startTime} />
-                </span>
-              </div>
-
-              <p
-                style={{
-                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                  fontSize: "0.8125rem",
-                  color: "var(--color-text-muted)",
-                  margin: "0.25rem 0 0",
-                  textAlign: "center",
-                }}
-              >
-                This takes 2–5 minutes
-              </p>
-            </div>
-
-            <div
-              style={{
-                width: "100%",
-                padding: "0.875rem 1rem",
-                backgroundColor: "color-mix(in srgb, var(--color-accent-blue) 8%, transparent)",
-                border: "1px solid color-mix(in srgb, var(--color-accent-blue) 20%, transparent)",
-                borderRadius: "8px",
-                fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                fontSize: "0.8125rem",
-                color: "var(--color-text-secondary)",
-                lineHeight: 1.55,
-              }}
-            >
-              Keep this tab open to see your result. If you close it, check My Dashboard in 5 minutes.
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="timeout"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", gap: "1.25rem", textAlign: "center" }}
+            Verifying {title}
+          </h1>
+          <p
+            style={{
+              fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+              fontSize: "0.9375rem",
+              color: "var(--color-text-secondary)",
+              margin: 0,
+              lineHeight: 1.6,
+            }}
           >
-            <div
-              style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "50%",
-                backgroundColor: "color-mix(in srgb, var(--color-text-muted) 12%, transparent)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "1.375rem",
-              }}
-            >
-              ⏱
-            </div>
+            GenLayer Intelligent Contracts are reviewing your project
+          </p>
+        </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-              <h1
-                style={{
-                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                  fontSize: "clamp(1.125rem, 3vw, 1.5rem)",
-                  fontWeight: 700,
-                  color: "var(--color-text-primary)",
-                  letterSpacing: "-0.03em",
-                  lineHeight: 1.2,
-                  margin: 0,
-                }}
-              >
-                Still processing
-              </h1>
-              <p
-                style={{
-                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                  fontSize: "0.9375rem",
-                  color: "var(--color-text-secondary)",
-                  margin: 0,
-                  lineHeight: 1.6,
-                }}
-              >
-                Verification is taking longer than expected. Your project has been submitted — check your dashboard to see the result.
-              </p>
-            </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", width: "100%" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "0.625rem 0.875rem",
+              backgroundColor: "rgba(var(--color-background-rgb), 0.6)",
+              borderRadius: "8px",
+              border: "1px solid var(--color-border-subtle)",
+            }}
+          >
+            <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-muted)" }}>
+              Transaction
+            </span>
+            <span style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: "0.8125rem", color: "var(--color-text-secondary)" }}>
+              {truncatedTx}
+            </span>
+          </div>
 
-            <a
-              href="/dashboard"
-              style={{
-                fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                fontSize: "0.9375rem",
-                fontWeight: 600,
-                color: "var(--color-text-primary)",
-                backgroundColor: "var(--color-accent-blue)",
-                borderRadius: "10px",
-                padding: "0.875rem 1.5rem",
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                letterSpacing: "-0.01em",
-                transition: "opacity 0.2s ease",
-                width: "100%",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.88")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-            >
-              Go to Dashboard →
-            </a>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "0.625rem 0.875rem",
+              backgroundColor: "rgba(var(--color-background-rgb), 0.6)",
+              borderRadius: "8px",
+              border: "1px solid var(--color-border-subtle)",
+            }}
+          >
+            <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-muted)" }}>
+              Time elapsed
+            </span>
+            <span style={{ fontSize: "0.8125rem", color: "var(--color-text-secondary)" }}>
+              <ElapsedTimer startTime={startTime} />
+            </span>
+          </div>
+
+          <WaitingStatus startTime={startTime} />
+        </div>
+
+        <div
+          style={{
+            width: "100%",
+            padding: "0.875rem 1rem",
+            backgroundColor: "color-mix(in srgb, var(--color-accent-blue) 8%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--color-accent-blue) 20%, transparent)",
+            borderRadius: "8px",
+            fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+            fontSize: "0.8125rem",
+            color: "var(--color-text-secondary)",
+            lineHeight: 1.55,
+          }}
+        >
+          Keep this tab open to see your result. If you close it, check My Dashboard in 5 minutes.
+        </div>
+      </motion.div>
     </motion.div>
   );
 }
