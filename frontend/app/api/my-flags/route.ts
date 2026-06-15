@@ -27,6 +27,7 @@ export interface ContractFlagResult {
   projectTitle: string;
   resolution: "VALID" | "INVALID";
   reason: string;
+  flagReasons: string;
   raisedAt: string;
 }
 
@@ -85,6 +86,7 @@ export async function GET(request: Request) {
           projectTitle: String(project.title),
           resolution: isValid ? "VALID" : "INVALID",
           reason,
+          flagReasons: flag.flag_reasons ?? "",
           raisedAt: flag.created_at ?? "",
         };
       } catch {
