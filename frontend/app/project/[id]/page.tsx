@@ -23,13 +23,13 @@ type FlagPhase = "form" | "submitting" | "pending" | "waiting" | "resolved_inval
 type BannerType = "pending" | "invalid" | "valid" | "removed";
 
 const FLAG_REASONS = [
-  "GitHub repo doesn't exist or is private",
-  "GitHub repo doesn't match the project description",
-  "Live URL doesn't load or shows unrelated content",
-  "Project story appears copied or AI-generated",
-  "Commits look fake or artificially created",
-  "Funding purpose is vague or misleading",
-  "README is empty or unrelated to the project",
+  "GitHub repository does not exist or cannot be accessed",
+  "Project description does not match the GitHub repository content",
+  "No commits or development activity found in the repository",
+  "Live URL does not load or shows unrelated content",
+  "Funding purpose appears vague or unrelated to the project",
+  "Project story contains false or misleading claims",
+  "Significant inconsistency between project claims and evidence",
 ];
 
 function weiToGen(raw: number | string): number {
