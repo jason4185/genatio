@@ -330,7 +330,7 @@ export default function LandingPage() {
   const statPills = [
     { value: statsLoading ? 0 : totalProjects, label: "Projects Verified" },
     { value: statsLoading ? 0 : totalDonors, label: "Total Donors" },
-    { value: statsLoading ? 0 : Math.round(totalRaised), label: "Total Raised (GEN)" },
+    { value: statsLoading ? 0 : Math.round(totalRaised), label: "GEN Total Raised" },
   ];
 
 
