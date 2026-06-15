@@ -346,32 +346,8 @@ export default function SubmitPage() {
         value: 0n,
       });
 
-      // Wait for GenLayer consensus to accept and capture receipt
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const receipt = await (glClient as any).waitForTransactionReceipt({ hash, status: "ACCEPTED", timeout: 300000 });
-
-      console.log("Full receipt:", JSON.stringify(receipt, null, 2));
-
-      // Parse the return value from the receipt
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const resultRaw = (receipt as any)?.consensus_data?.leader_receipt?.[0]?.result;
-      let status = "rejected";
-      let score = 0;
-      let projectId: string | undefined;
-
-      try {
-        const parsed = JSON.parse(resultRaw as string);
-        status = String(parsed.status ?? "rejected");
-        score = Number(parsed.score) || 0;
-        projectId = parsed.project_id != null ? String(parsed.project_id) : undefined;
-      } catch {
-        console.error("Failed to parse receipt result:", resultRaw);
-      }
-
-      // Redirect to verify page
-      const params = new URLSearchParams({ status, score: String(score) });
-      if (projectId) params.set("project_id", projectId);
-      router.push(`/verify?${params}`);
+      // Redirect immediately to status page — polling happens there
+      router.push(`/status?tx=${hash}&title=${encodeURIComponent(form.title)}`);
     } catch (err: unknown) {
       setSubmitting(false);
       const errMsg = (err instanceof Error ? err.message : String(err)).toLowerCase();
@@ -443,7 +419,7 @@ export default function SubmitPage() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                Submitting to GenLayer Intelligent Contracts...
+                Submitting your project...
               </h2>
               <p
                 style={{
@@ -454,7 +430,7 @@ export default function SubmitPage() {
                   maxWidth: "400px",
                 }}
               >
-                This may take 2–5 minutes
+                Confirm the transaction in your wallet
               </p>
             </div>
             <div style={{ display: "flex", gap: "0.375rem", marginTop: "0.5rem" }}>

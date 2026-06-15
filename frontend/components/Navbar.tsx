@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount } from "wagmi";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationBell } from "./NotificationBell";
 import { Logo } from "./Logo";
@@ -28,6 +29,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [blurAmount, setBlurAmount] = useState(8);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { isConnected } = useAccount();
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY;
@@ -129,6 +131,25 @@ export default function Navbar() {
               {link.label}
             </a>
           ))}
+
+          {isConnected && (
+            <a
+              href="/status"
+              className="nav-link"
+              style={{
+                fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                fontSize: "0.9rem",
+                fontWeight: 500,
+                color: "var(--color-text-secondary)",
+                textDecoration: "none",
+                transition: "color 0.2s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-text-primary)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-secondary)")}
+            >
+              My Projects
+            </a>
+          )}
 
           <ThemeToggle />
           <NotificationBell />
@@ -256,6 +277,28 @@ export default function Navbar() {
                     {link.label}
                   </motion.a>
                 ))}
+
+                {isConnected && (
+                  <motion.a
+                    href="/status"
+                    variants={menuItemVariants}
+                    onClick={() => setMenuOpen(false)}
+                    style={{
+                      fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                      fontSize: "1.0625rem",
+                      fontWeight: 500,
+                      color: "var(--color-text-secondary)",
+                      textDecoration: "none",
+                      padding: "0.875rem 0",
+                      borderBottom: "1px solid var(--color-border-subtle)",
+                      transition: "color 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-text-primary)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-secondary)")}
+                  >
+                    My Projects
+                  </motion.a>
+                )}
 
                 <motion.div variants={menuItemVariants} style={{ marginTop: "1.75rem" }}>
                   <ConnectButton

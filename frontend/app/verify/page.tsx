@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useAccount } from "wagmi";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, XCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -92,12 +93,26 @@ function AnimatedScoreRing({
 
 function VerifyContent() {
   const searchParams = useSearchParams();
+  const { address } = useAccount();
 
   const statusParam = searchParams.get("status") ?? "rejected";
   const scoreParam = Number(searchParams.get("score")) || 0;
   const projectId = searchParams.get("project_id");
+  const titleParam = searchParams.get("title") ?? "Your project";
 
   const approved = statusParam === "active";
+
+  useEffect(() => {
+    if (!approved && address) {
+      try {
+        sessionStorage.setItem(`rejection_${address}`, JSON.stringify({
+          title: titleParam,
+          score: scoreParam,
+          timestamp: Date.now(),
+        }));
+      } catch {}
+    }
+  }, [approved, address, titleParam, scoreParam]);
   const score = scoreParam;
 
   const accentColor = approved ? "var(--color-success)" : "var(--color-danger)";
