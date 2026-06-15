@@ -83,7 +83,7 @@ function useCountdown(createdAt: string | number, durationDays: string | number)
 
 function parseReceiptResult(resultRaw: unknown): { resolution: "valid" | "invalid"; reason: string } {
   if (!resultRaw) {
-    return { resolution: "invalid", reason: "Investigation completed. The project appears legitimate." };
+    return { resolution: "invalid", reason: "No resolution this time. Please try flagging again later." };
   }
   try {
     const parsed = JSON.parse(resultRaw as string);
@@ -93,7 +93,7 @@ function parseReceiptResult(resultRaw: unknown): { resolution: "valid" | "invali
       reason: String(parsed.reason ?? "Investigation complete."),
     };
   } catch {
-    return { resolution: "invalid", reason: "Investigation completed. The project appears legitimate." };
+    return { resolution: "invalid", reason: "No resolution this time. Please try flagging again later." };
   }
 }
 
@@ -125,9 +125,9 @@ async function resolveFlag(hash: string): Promise<{ resolution: "valid" | "inval
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     if (errMsg.toLowerCase().includes("timed out") || errMsg.toLowerCase().includes("timeout")) {
-      return { resolution: "invalid", reason: "Investigation timed out. The project remains active." };
+      return { resolution: "invalid", reason: "No resolution this time. Please try flagging again later." };
     }
-    return { resolution: "invalid", reason: "Investigation completed. The project appears legitimate." };
+    return { resolution: "invalid", reason: "No resolution this time. Please try flagging again later." };
   }
 }
 
