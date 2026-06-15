@@ -117,7 +117,6 @@ async function resolveFlag(hash: string): Promise<{ resolution: "valid" | "inval
     const receipt = await glClient.waitForTransactionReceipt({
       hash,
       status: "ACCEPTED",
-      timeout: 120000, // 2 minutes max
     });
 
     const resultRaw = receipt?.consensus_data?.leader_receipt?.[0]?.result;

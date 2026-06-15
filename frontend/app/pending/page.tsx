@@ -93,7 +93,6 @@ function PendingContent() {
         const receipt = await (genLayerClient as any).waitForTransactionReceipt({
           hash: tx,
           status: "ACCEPTED",
-          timeout: 300000,
         });
 
         if (redirectedRef.current) return;
