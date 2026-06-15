@@ -53,7 +53,7 @@ export function useProjects(status: string = "", enabled = true) {
   useEffect(() => {
     if (!enabled) return;
     fetchProjects();
-    const interval = setInterval(fetchProjects, 120_000);
+    const interval = setInterval(fetchProjects, 30_000);
     return () => clearInterval(interval);
   }, [fetchProjects, enabled]);
 

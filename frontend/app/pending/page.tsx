@@ -78,6 +78,7 @@ function PendingContent() {
   const [timedOut, setTimedOut] = useState(false);
   const [startTime] = useState(() => Date.now());
   const pollingRef = useRef(false);
+  const redirectedRef = useRef(false);
 
   const truncatedTx = tx.length > 12
     ? `${tx.slice(0, 6)}…${tx.slice(-4)}`
@@ -94,6 +95,8 @@ function PendingContent() {
           status: "ACCEPTED",
           timeout: 300000,
         });
+
+        if (redirectedRef.current) return;
 
         const leaderReceipt = receipt?.consensus_data?.leader_receipt?.[0];
         const result = leaderReceipt?.result;
@@ -120,19 +123,50 @@ function PendingContent() {
           } catch {}
         }
 
-        const params = new URLSearchParams({
-          status,
-          score: String(score),
-          title,
-        });
+        const params = new URLSearchParams({ status, score: String(score), title });
         if (approved && projectId) params.set("project_id", projectId);
 
+        redirectedRef.current = true;
         router.push(`/verify?${params.toString()}`);
       } catch {
         setTimedOut(true);
       }
     })();
   }, [tx, title, address, router]);
+
+  // Background refresh: check projects API every 30s as a secondary signal
+  useEffect(() => {
+    if (!address || !title) return;
+
+    const check = async () => {
+      if (redirectedRef.current) return;
+      try {
+        const res = await fetch("/api/projects?status=active");
+        if (!res.ok) return;
+        const raw: unknown = await res.json();
+        type ActiveProject = { title?: string; wallet?: string; score?: number; id?: string };
+        const list: ActiveProject[] = Array.isArray(raw) ? (raw as ActiveProject[]) : Object.values((raw as object) ?? {}) as ActiveProject[];
+        const match = list.find(
+          (p) =>
+            p.wallet?.toLowerCase() === address.toLowerCase() &&
+            p.title?.toLowerCase() === title.toLowerCase()
+        );
+        if (match) {
+          redirectedRef.current = true;
+          const params = new URLSearchParams({
+            status: "active",
+            score: String(match.score ?? 0),
+            title,
+          });
+          if (match.id != null) params.set("project_id", String(match.id));
+          router.push(`/verify?${params.toString()}`);
+        }
+      } catch {}
+    };
+
+    const interval = setInterval(check, 30_000);
+    return () => clearInterval(interval);
+  }, [address, title, router]);
 
   const cardStyle: React.CSSProperties = {
     backgroundColor: "rgba(var(--color-surface-rgb), 0.7)",

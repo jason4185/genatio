@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useAccount } from "wagmi";
 import { motion, type Variants } from "framer-motion";
 import { Loader2, Clock, ExternalLink, RefreshCw } from "lucide-react";
@@ -253,32 +253,55 @@ function DashboardContent() {
   const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [rejection, setRejection] = useState<Rejection | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [secondsAgo, setSecondsAgo] = useState(0);
 
-  useEffect(() => {
-    if (!isConnected || !address) return;
+  const fetchProjects = useCallback(
+    async (isInitial = false) => {
+      if (!isConnected || !address) return;
+      if (isInitial) setLoading(true);
 
-    setLoading(true);
-
-    Promise.all([
-      fetch("/api/projects?status=active").then((r) => r.json()).catch(() => []),
-      fetch("/api/projects?status=ended").then((r) => r.json()).catch(() => []),
-      fetch("/api/projects?status=disputed").then((r) => r.json()).catch(() => []),
-    ])
-      .then(([active, ended, disputed]) => {
+      try {
+        const [active, ended, disputed] = await Promise.all([
+          fetch("/api/projects?status=active").then((r) => r.json()).catch(() => []),
+          fetch("/api/projects?status=ended").then((r) => r.json()).catch(() => []),
+          fetch("/api/projects?status=disputed").then((r) => r.json()).catch(() => []),
+        ]);
         const all = [
           ...parseProjects(active),
           ...parseProjects(ended),
           ...parseProjects(disputed),
         ];
         setMyProjects(all.filter((p) => p.wallet?.toLowerCase() === address.toLowerCase()));
-      })
-      .finally(() => setLoading(false));
+        setLastUpdated(Date.now());
+      } finally {
+        if (isInitial) setLoading(false);
+      }
+    },
+    [isConnected, address]
+  );
+
+  useEffect(() => {
+    if (!isConnected || !address) return;
+
+    fetchProjects(true);
+    const interval = setInterval(() => fetchProjects(false), 30_000);
 
     try {
       const stored = sessionStorage.getItem(`rejection_${address}`);
       if (stored) setRejection(JSON.parse(stored));
     } catch {}
-  }, [isConnected, address]);
+
+    return () => clearInterval(interval);
+  }, [isConnected, address, fetchProjects]);
+
+  useEffect(() => {
+    if (!lastUpdated) return;
+    const tick = setInterval(() => {
+      setSecondsAgo(Math.floor((Date.now() - lastUpdated) / 1000));
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [lastUpdated]);
 
   if (!isConnected) {
     return (
@@ -392,6 +415,19 @@ function DashboardContent() {
       ))}
       {rejection && (
         <RejectionCard rejection={rejection} index={myProjects.length} />
+      )}
+      {lastUpdated !== null && (
+        <p
+          style={{
+            fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+            fontSize: "0.75rem",
+            color: "var(--color-text-muted)",
+            margin: "0.25rem 0 0",
+            textAlign: "right",
+          }}
+        >
+          Updated {secondsAgo < 5 ? "just now" : `${secondsAgo}s ago`}
+        </p>
       )}
     </div>
   );

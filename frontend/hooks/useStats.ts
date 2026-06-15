@@ -40,7 +40,7 @@ export function useStats() {
 
   useEffect(() => {
     fetchStats();
-    const interval = setInterval(fetchStats, 180_000);
+    const interval = setInterval(fetchStats, 30_000);
     return () => clearInterval(interval);
   }, [fetchStats]);
 
