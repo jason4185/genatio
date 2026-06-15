@@ -130,7 +130,7 @@ If project appears real even if incomplete: reply INVALID - brief reason"""
                 blacklist.append(project["wallet"])
                 self.blacklist = json.dumps(blacklist)
             main_contract = gl.get_contract_at(Address(self.main_contract))
-            main_contract.emit(on="finalized").reject_project(project_id)
+            main_contract.emit(on="accepted").reject_project(project_id)
             return json.dumps({"status": "success", "resolution": "VALID", "reason": resolution})
         else:
             return json.dumps({"status": "success", "resolution": "INVALID", "reason": resolution})

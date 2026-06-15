@@ -20,7 +20,7 @@ import { useFunders } from "@/hooks/useFunders";
 import { DISPUTE_CONTRACT } from "@/lib/genatio";
 
 type FlagPhase = "form" | "submitting" | "pending" | "waiting" | "resolved_invalid" | "resolved_valid";
-type BannerType = "pending" | "invalid" | "valid" | "removed";
+type BannerType = "pending" | "invalid" | "valid";
 
 const FLAG_REASONS = [
   "GitHub repository does not exist or cannot be accessed",
@@ -151,12 +151,7 @@ function FlagBanner({ type, reason, onDismiss }: FlagBannerProps) {
       accentColor: "var(--color-success)",
     },
     valid: {
-      text: "Your flag was confirmed. This project is pending removal.",
-      icon: <XCircle size={14} style={{ flexShrink: 0 }} />,
-      accentColor: "var(--color-danger)",
-    },
-    removed: {
-      text: "This project has been removed from Genatio.",
+      text: "Flag confirmed. This project has been removed from Genatio.",
       icon: <XCircle size={14} style={{ flexShrink: 0 }} />,
       accentColor: "var(--color-danger)",
     },
@@ -316,8 +311,6 @@ export default function ProjectDetailPage() {
   // Banner state (returning user)
   const [flagBanner, setFlagBanner] = useState<BannerType | null>(null);
   const [bannerReason, setBannerReason] = useState("");
-  const [projectRemoved, setProjectRemoved] = useState(false);
-
   // Tracks whether "Keep waiting" polling should update modal vs banner
   const keepWaitingActiveRef = useRef(false);
 
@@ -341,27 +334,6 @@ export default function ProjectDetailPage() {
       .catch(() => {});
   }, [address, projectId, project]);
 
-  // Poll project status every 30s after VALID flag — update banner when rejected
-  const flagValidActive = flagPhase === "resolved_valid" || flagBanner === "valid";
-  useEffect(() => {
-    if (!flagValidActive || !projectId || projectRemoved) return;
-
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/project/${projectId}`);
-        if (!res.ok) return;
-        const data: { status?: string } = await res.json();
-        if (String(data?.status ?? "").toLowerCase() === "rejected") {
-          setProjectRemoved(true);
-          setFlagBanner("removed");
-        }
-      } catch {}
-    };
-
-    poll();
-    const interval = setInterval(poll, 30_000);
-    return () => clearInterval(interval);
-  }, [flagValidActive, projectId, projectRemoved]);
 
   // ── Flag modal helpers ───────────────────────────────────────────────────
   const closeFlagModal = () => {
@@ -1362,7 +1334,7 @@ export default function ProjectDetailPage() {
               </div>
             )}
 
-            {/* ── RESOLVED: VALID (pending removal → confirmed removed) ── */}
+            {/* ── RESOLVED: VALID (project removed) ── */}
             {flagPhase === "resolved_valid" && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "1.5rem 0", textAlign: "center" }}>
                 <div
@@ -1379,18 +1351,9 @@ export default function ProjectDetailPage() {
                 >
                   <XCircle size={22} color="var(--color-danger)" />
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-                  <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-danger)", margin: 0 }}>
-                    {projectRemoved
-                      ? "Project has been removed from Genatio."
-                      : "Flag confirmed. The project will be removed after final verification. This may take 20-30 minutes."}
-                  </p>
-                  {!projectRemoved && (
-                    <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-muted)", margin: 0, lineHeight: 1.5 }}>
-                      Checking removal status every 30 seconds...
-                    </p>
-                  )}
-                </div>
+                <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-danger)", margin: 0 }}>
+                  Flag confirmed. This project has been removed from Genatio.
+                </p>
                 {flagResolutionReason && (
                   <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6 }}>
                     {flagResolutionReason}
