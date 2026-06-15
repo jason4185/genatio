@@ -33,4 +33,4 @@ Network: GenLayer Bradbury Testnet · Chain ID: 4221
 
 ---
 
-Built by [Jason](https://x.com/Ja_so) for the GenLayer Builder Program.
+Built by [Jason](https://x.com/ja__so) for the GenLayer Builder Program.
