@@ -281,7 +281,7 @@ function VerifyContent() {
             {approved ? "View Your Project →" : "Improve and Resubmit →"}
           </a>
           <a
-            href="/browse"
+            href="/dashboard"
             style={{
               fontFamily: "var(--font-jakarta), system-ui, sans-serif",
               fontSize: "0.9375rem",
@@ -306,7 +306,7 @@ function VerifyContent() {
               e.currentTarget.style.borderColor = "var(--color-border-subtle)";
             }}
           >
-            {approved ? "Browse All Projects" : "Browse Projects"}
+            Go to Dashboard
           </a>
         </motion.div>
       </motion.div>

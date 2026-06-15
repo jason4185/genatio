@@ -347,7 +347,7 @@ export default function SubmitPage() {
       });
 
       // Redirect immediately to status page — polling happens there
-      router.push(`/dashboard?tx=${hash}&title=${encodeURIComponent(form.title)}`);
+      router.push(`/pending?tx=${hash}&title=${encodeURIComponent(form.title)}`);
     } catch (err: unknown) {
       setSubmitting(false);
       const errMsg = (err instanceof Error ? err.message : String(err)).toLowerCase();
