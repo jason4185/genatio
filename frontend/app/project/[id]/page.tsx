@@ -81,53 +81,53 @@ function useCountdown(createdAt: string | number, durationDays: string | number)
   };
 }
 
-function parseReceiptResult(resultRaw: unknown): { resolution: "valid" | "invalid"; reason: string } {
-  if (!resultRaw) {
-    return { resolution: "invalid", reason: "No resolution this time. Please try flagging again later." };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseReceiptResult(receipt: any): { resolution: "valid" | "invalid"; reason: string } {
+  const leaderReceipt = receipt?.consensus_data?.leader_receipt?.[0];
+  const resultRaw = leaderReceipt?.result;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let parsed: any = {};
+
+  if (typeof resultRaw === "string") {
+    try { parsed = JSON.parse(resultRaw); } catch {}
+  } else if (resultRaw && typeof resultRaw === "object") {
+    parsed = resultRaw;
   }
-  try {
-    const parsed = JSON.parse(resultRaw as string);
-    const res = String(parsed.resolution ?? "").toUpperCase();
-    return {
-      resolution: res.startsWith("VALID") ? "valid" : "invalid",
-      reason: String(parsed.reason ?? "Investigation complete."),
-    };
-  } catch {
-    return { resolution: "invalid", reason: "No resolution this time. Please try flagging again later." };
+
+  if (!parsed.resolution && !parsed.status) {
+    return { resolution: "invalid" as const, reason: "No resolution this time. Please try flagging again later." };
   }
+
+  const res = String(parsed.resolution ?? "").toUpperCase();
+  return {
+    resolution: res.startsWith("VALID") ? "valid" as const : "invalid" as const,
+    reason: String(parsed.reason ?? "Investigation complete."),
+  };
 }
 
 async function resolveFlag(hash: string): Promise<{ resolution: "valid" | "invalid"; reason: string }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const glClient = createClient({ chain: glTestnetBradbury }) as any;
+  const glClient = createClient({ chain: glTestnetBradbury });
 
-  // Pre-check: if the transaction is already ACCEPTED, read the receipt directly
-  // instead of calling waitForTransactionReceipt (which may hang on no-return-value txs).
   try {
-    const existing = await glClient.getTransactionByHash({ hash });
-    if (existing?.status === "ACCEPTED") {
-      const resultRaw = existing?.consensus_data?.leader_receipt?.[0]?.result;
-      return parseReceiptResult(resultRaw);
+    // First try to get transaction directly — it may already be ACCEPTED
+    const tx = await (glClient as any).getTransaction({ hash });
+
+    if (tx?.status === "ACCEPTED" || tx?.consensus_data) {
+      // Already ACCEPTED — read result directly
+      return parseReceiptResult(tx);
     }
   } catch {
-    // getTransactionByHash not available or tx not found — fall through
+    // Transaction not found yet — continue to waitForTransactionReceipt
   }
 
-  try {
-    const receipt = await glClient.waitForTransactionReceipt({
-      hash,
-      status: "ACCEPTED",
-    });
+  // Wait for ACCEPTED
+  const receipt = await (glClient as any).waitForTransactionReceipt({
+    hash,
+    status: "ACCEPTED",
+  });
 
-    const resultRaw = receipt?.consensus_data?.leader_receipt?.[0]?.result;
-    return parseReceiptResult(resultRaw);
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    if (errMsg.toLowerCase().includes("timed out") || errMsg.toLowerCase().includes("timeout")) {
-      return { resolution: "invalid", reason: "No resolution this time. Please try flagging again later." };
-    }
-    return { resolution: "invalid", reason: "No resolution this time. Please try flagging again later." };
-  }
+  return parseReceiptResult(receipt);
 }
 
 // ── Banner ─────────────────────────────────────────────────────────────────
