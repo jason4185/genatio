@@ -1,20 +1,20 @@
 # Genatio Frontend
 
-Next.js frontend for the Genatio grant platform.
+> Next.js 15 frontend for the Genatio trustless grant app.
 
 ---
 
 ## Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router) + TypeScript |
-| Styling | Tailwind CSS v4 + CSS custom properties |
-| Components | shadcn/ui |
+| Category | Technology |
+|----------|-----------|
+| Framework | Next.js 15 + TypeScript |
+| Styling | Tailwind CSS + CSS Custom Properties |
+| UI Components | shadcn/ui |
 | Animations | Framer Motion + Canvas API |
 | Wallet | RainbowKit + wagmi v2 + viem |
 | Blockchain | genlayer-js |
-| Fonts | Plus Jakarta Sans · JetBrains Mono |
+| Fonts | Plus Jakarta Sans + JetBrains Mono |
 | Theme | next-themes (Light / Dark / System) |
 
 ---
@@ -22,74 +22,56 @@ Next.js frontend for the Genatio grant platform.
 ## Pages
 
 | Route | Description |
-|---|---|
-| `/` | Landing page — hero, live stats ticker, active project cards, animated background |
-| `/browse` | Browse all projects — active and ended tabs, live funding progress, score rings |
-| `/submit` | 3-step project submission form — validates input, submits to GenLayer contract, waits for AI verification result |
-| `/project/[id]` | Project detail — funding progress, countdown, funders list, flag modal with dispute flow |
-| `/verify` | Verification result page — animated score ring, approved/rejected status after submit |
+|-------|-------------|
+| `/` | Landing page with live stats, project grid, verification ticker |
+| `/browse` | Browse all projects with search, filters, and sort |
+| `/submit` | Multi-step project submission form |
+| `/project/[id]` | Project detail with funding card, verification card, flag modal |
+| `/verify` | Verification result with animated score ring |
 
 ---
 
 ## Hooks
 
 | Hook | Description |
-|---|---|
-| `useProjects` | Fetches and polls all projects by status every 2 minutes |
-| `useProject` | Fetches a single project by ID |
-| `useFunders` | Fetches the funder list for a project from the GenLayer contract |
-| `useStats` | Derives platform-wide stats (total raised, project count, donor count) from active projects |
-| `useWallet` | Thin wrapper around wagmi `useAccount` for connected address and connection state |
+|------|-------------|
+| `useProjects` | Fetches active/ended projects from `/api/projects` |
+| `useProject` | Fetches single project from `/api/project/[id]` |
+| `useStats` | Derives app stats from project data |
+| `useWallet` | Thin wrapper around wagmi `useAccount` |
 
 ---
 
 ## API Routes
 
-| Route | Description |
-|---|---|
-| `GET /api/projects?status=active` | Returns all projects filtered by status from the GenLayer contract |
-| `GET /api/project/[id]` | Returns a single project by ID |
-| `GET /api/flags/[id]` | Returns flag/dispute data for a project |
-| `GET /api/my-flags` | Returns flags raised by the connected wallet |
+| Route | Description | Cache |
+|-------|-------------|-------|
+| `/api/projects` | Returns projects by status from contract | 60s |
+| `/api/project/[id]` | Returns single project by ID | 60s |
+| `/api/flags/[id]` | Returns flag data for a project | 60s |
+| `/api/my-flags` | Returns flags raised by a wallet | 60s |
+
+All API routes cache contract reads server-side to prevent rate limiting on the Bradbury RPC.
 
 ---
 
-## Design Tokens
+## Design System
 
-All colors are CSS custom properties — no hardcoded hex values in components.
-
-### Dark mode (default)
-```
---color-background:      #060B18
---color-surface:         #0C1220
---color-elevated:        #121929
---color-border-subtle:   #1E2D45
---color-accent-blue:     #2D9CDB
---color-accent-cyan:     #00C6FF
---color-success:         #27AE60
---color-danger:          #EB5757
---color-text-primary:    #F0F4FF
---color-text-secondary:  #8899AA
---color-text-muted:      #4A5568
-```
-
-Semi-transparent values use `rgba(var(--color-background-rgb), 0.N)` and `color-mix(in srgb, var(--color-X) N%, transparent)` — no hardcoded rgba.
+| Token | Dark Mode | Light Mode |
+|-------|-----------|------------|
+| `--color-background` | `#060B18` | `#EEF2F7` |
+| `--color-surface` | `#0C1220` | `#F8FAFC` |
+| `--color-accent-blue` | `#2D9CDB` | `#1D6FA4` |
+| `--color-text-primary` | `#F0F4FF` | `#0F172A` |
+| `--color-success` | `#27AE60` | `#15803D` |
+| `--color-danger` | `#EB5757` | `#B91C1C` |
 
 ---
 
-## Components
+## Key Features
 
-| Component | Description |
-|---|---|
-| `Navbar` | Fixed navbar with scroll blur, Framer Motion slide-in, mobile slide panel |
-| `Logo` | SVG shield + checkmark icon with optional wordmark, all CSS variables |
-| `AnimatedBackground` | Canvas particle field rendered behind all pages |
-| `ProjectCard` | Card with score ring, funding progress bar, status badge |
-| `ScoreRing` | Animated SVG ring displaying AI verification score |
-| `FundingProgress` | Animated bar showing raised vs goal |
-| `LiveStatsCard` | Platform stats with animated counters |
-| `VerificationTicker` | Scrolling ticker of recent verification activity |
-| `ThemeToggle` | Light/dark toggle using next-themes |
-| `NotificationBell` | Bell icon in navbar for flag/dispute notifications |
-| `Providers` | Wraps app with RainbowKit + wagmi + react-query providers |
-| `ThemeProvider` | next-themes wrapper |
+- **Server-side caching** — API routes cache Bradbury RPC responses for 60 seconds preventing rate limits under high traffic
+- **Optimistic UI** — Projects appear immediately after ACCEPTED status without waiting for FINALIZED
+- **Theme aware** — All colors use CSS variables — zero hardcoded hex values
+- **Wallet gated actions** — Submit, Fund, and Flag require wallet connection
+- **Flag notifications** — Flaggers see investigation results via contract reads on return visit
