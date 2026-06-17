@@ -324,6 +324,12 @@ export default function SubmitPage() {
     setSubmitError(null);
     setSubmitting(true);
 
+    if (!form.goalGen || Number(form.goalGen) <= 0) {
+      setSubmitError("Please enter a valid funding goal.");
+      setSubmitting(false);
+      return;
+    }
+
     // Pre-check title uniqueness before asking user to sign
     try {
       const readClient = createClient({ chain: glTestnetBradbury });
@@ -381,7 +387,7 @@ export default function SubmitPage() {
       const contractArgs = [
         form.title,
         form.about,
-        BigInt(form.goalGen) * 1_000_000_000_000_000_000n,
+        BigInt(Math.floor(Number(form.goalGen))) * 1_000_000_000_000_000_000n,
         BigInt(form.durationDays),
         form.githubUrl,
         form.liveUrl,
@@ -401,8 +407,12 @@ export default function SubmitPage() {
     } catch (err: unknown) {
       setSubmitting(false);
       const errMsg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-      if (errMsg.includes("timed out") || errMsg.includes("timeout")) {
-        setSubmitError("Verification is taking longer than expected. Please check back in a few minutes — your project may still be processing.");
+      if (errMsg.includes("parse error") || errMsg.includes("unmarshal")) {
+        setSubmitError("GenLayer network is busy. Please wait a moment and try again.");
+      } else if (errMsg.includes("rate limit")) {
+        setSubmitError("Too many requests. Please wait 30 seconds and try again.");
+      } else if (errMsg.includes("timed out") || errMsg.includes("timeout")) {
+        setSubmitError("Network timeout. Please check your connection and try again.");
       } else if (errMsg.includes("user rejected") || errMsg.includes("rejected the request")) {
         setSubmitError("Transaction cancelled.");
       } else if (errMsg.includes("insufficient funds") || errMsg.includes("insufficient balance")) {

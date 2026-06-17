@@ -1,152 +1,116 @@
 # Genatio
-
-> Trustless open source grants powered by GenLayer Intelligent Contracts.
+Trustless open source grants on GenLayer Bradbury.
 
 **Live Demo:** https://genatio.xyz
 
----
+## What it does
+- GenLayer Intelligent Contracts verify every project submission through Optimistic Democracy
+- Five independent validators fetch GitHub data and score projects on-chain
+- Community funds verified projects directly — no intermediary
+- Suspicious projects can be flagged and re-investigated by a dispute contract automatically
 
-## Overview
+## Quick Demo
+Prerequisites: Node 18+, Rabby Wallet, GenLayer Bradbury configured (chain id 4221)
+git clone https://github.com/jason4185/genatio
 
-Genatio is a trustless open source grant app built entirely on GenLayer Bradbury. Every project that applies for funding is verified autonomously by a GenLayer Intelligent Contract through Optimistic Democracy — five independent validators fetch the GitHub data, score the project across several factors, and reach consensus on-chain. No human approves or rejects anything.
+cd genatio/frontend
 
-Approved projects go live immediately. The community funds them directly on-chain. If a project looks suspicious, anyone can flag it. A dispute Intelligent Contract re-investigates using the same AI verification pipeline and executes the outcome automatically through contract-to-contract calls.
+npm install
 
----
+npm run dev
 
-## How It Works
+Open http://localhost:3000, connect wallet, submit a project with a GitHub URL, and wait for verification.
 
-| Step | Description |
-|------|-------------|
-| Submit | Connect wallet, add GitHub URL, set funding goal and duration |
-| Verify | Intelligent Contract scores project through Optimistic Democracy |
-| Fund | Community funds verified projects directly on-chain |
-| Flag | Suspicious projects re-investigated by dispute contract |
+## UI Tour
 
----
+### Landing Page
+Genatio greets visitors with live on-chain stats and active projects verified by GenLayer Intelligent Contracts. Connect your wallet to submit a project or fund one directly.
 
-## Tech Stack
+![Genatio Home](screenshots/home.png)
 
-### Smart Contracts
-| Contract | Description |
-|----------|-------------|
-| `Genatio.py` | Main contract — verification, funding, dispute callbacks |
-| `GenatioDispute.py` | Dispute contract — AI flag investigation, contract-to-contract calls |
+### Browse Projects
+All verified projects are listed publicly. Browse active grants, see AI verification scores, and fund projects you believe in directly on-chain.
 
-### Frontend
-| Category | Technology |
-|----------|-----------|
-| Framework | Next.js 15 + TypeScript |
-| Styling | Tailwind CSS + CSS Variables |
-| UI | shadcn/ui |
-| Animations | Framer Motion + Canvas API |
-| Wallet | RainbowKit + wagmi v2 + viem |
-| Blockchain | genlayer-js |
-| Theme | next-themes (Light / Dark / System) |
+![Browse Projects](screenshots/browse.png)
 
----
+### Submit Project
+Builders submit their open source project with a GitHub URL, project story, and funding goal. GenLayer Intelligent Contracts fetch the GitHub data and score the project through Optimistic Democracy — no human reviews anything.
 
-## Contract Addresses
+![Submit Project](screenshots/submit.png)
 
-| Contract | Address | Network |
-|----------|---------|---------|
-| Genatio | `0x544B6dEb105a02f585f0Aa3aef6398B5E9cD5B77` | GenLayer Bradbury |
-| GenatioDispute | `0x4dE9635b81DbfbC9E590C868d698dAF09f20C46E` | GenLayer Bradbury |
+### Flag a Project
+Community members can flag suspicious projects. A dispute Intelligent Contract re-investigates using the same AI verification pipeline and executes the outcome automatically on-chain.
 
-**Chain ID:** 4221 · **RPC:** https://rpc-bradbury.genlayer.com · **Explorer:** https://explorer-bradbury.genlayer.com
+![Flag Project](screenshots/flag.png)
 
----
+## How it works
+1. Creator connects wallet and submits project with GitHub URL and funding goal
+2. GenLayer Intelligent Contract fetches GitHub data and scores project through Optimistic Democracy
+3. Projects scoring 40+ go live immediately — community funds them directly on-chain
+4. Anyone can flag suspicious projects — dispute contract re-investigates using same AI pipeline
 
-## Repository Structure
+## Contracts
+| Contract | Address |
+|----------|---------|
+| Genatio | `0x544B6dEb105a02f585f0Aa3aef6398B5E9cD5B77` |
+| GenatioDispute | `0x4dE9635b81DbfbC9E590C868d698dAF09f20C46E` |
 
-```
+Network: GenLayer Bradbury · Chain ID: 4221
+
+## Project Structure
 genatio/
-├── contract/
-│   ├── Genatio.py              # Main Intelligent Contract
-│   └── GenatioDispute.py       # Dispute Intelligent Contract
-├── frontend/
-│   ├── app/
-│   │   ├── api/                # Server-side API routes with caching
-│   │   │   ├── projects/       # Project list endpoint
-│   │   │   ├── project/[id]/   # Single project endpoint
-│   │   │   ├── flags/[id]/     # Flag data endpoint
-│   │   │   └── my-flags/       # User flag history
-│   │   ├── browse/             # Browse all projects
-│   │   ├── dashboard/          # Personal project dashboard
-│   │   ├── pending/            # Verification waiting page
-│   │   ├── project/[id]/       # Project detail page
-│   │   ├── submit/             # Submit project form
-│   │   └── verify/             # Verification result page
-│   ├── components/
-│   │   ├── AnimatedBackground.tsx
-│   │   ├── LiveStatsCard.tsx
-│   │   ├── NotificationBell.tsx
-│   │   ├── ProjectCard.tsx
-│   │   ├── ScoreRing.tsx
-│   │   └── VerificationTicker.tsx
-│   ├── hooks/
-│   │   ├── useProjects.ts
-│   │   ├── useProject.ts
-│   │   ├── useStats.ts
-│   │   └── useWallet.ts
-│   └── lib/
-│       ├── genatio.ts          # Contract addresses
-│       └── wagmi.ts            # Wallet config
-└── README.md
-```
 
----
+├── contract/
+
+│   ├── Genatio.py              # Main Intelligent Contract
+
+│   └── GenatioDispute.py       # Dispute Intelligent Contract
+
+├── frontend/
+
+│   ├── app/                    # Next.js pages and API routes
+
+│   ├── components/             # UI components
+
+│   ├── hooks/                  # Contract data hooks
+
+│   └── lib/                    # Contract addresses and wallet config
+
+└── README.md
 
 ## GenLayer Features Used
-
-- `gl.nondet.web.get()` — GitHub API data fetching
+- `gl.nondet.web.get()` — GitHub API fetching
 - `gl.nondet.web.render()` — Live URL verification
 - `gl.nondet.exec_prompt()` — AI project scoring and flag evaluation
-- `gl.vm.run_nondet_unsafe()` — Custom validator for verification and flag consensus
-- `gl.vm.Return` — Validator type check
-- `gl.message.sender_address` — Wallet identity on every write method
-- `gl.message.value` — GEN amount in fund_project
+- `gl.vm.run_nondet_unsafe()` — Custom validator for consensus
+- `gl.message.sender_address` — Wallet identity
+- `gl.message.value` — GEN donations
 - `gl.message_raw['datetime']` — On-chain timestamps
-- `@gl.public.write.payable` — Payable fund_project method
-- `@gl.evm.contract_interface` — EOA recipient wrapper for GEN transfers
-- `emit_transfer()` — Send GEN to creator wallet
-- `gl.get_contract_at()` — Cross-contract reference
-- `.view()` — Read project data from main contract
-- `.emit(on="accepted")` — Call reject_project on main contract
-- `TreeMap[str, str]` — campaigns, rejected storage
-- `DynArray[str]` — donations, blacklist, reports
-- `@gl.public.view` — All read methods
-- `@gl.public.write` — All write methods
-- `Address()` — Contract address handling
+- `@gl.public.write.payable` — Payable fund method
+- `@gl.evm.contract_interface` — EOA GEN transfer
+- `gl.get_contract_at().view()` — Cross-contract reads
+- `gl.get_contract_at().emit()` — Cross-contract writes
 
-**Total: 19 GenLayer methods across 8 categories**
+## Status
 
----
+### MVP 1 — Current (Live)
+- ✅ Project submission with AI verification through Optimistic Democracy
+- ✅ Community flag and dispute resolution
+- ✅ Dashboard with submission and flag history
+- ✅ Rejected project storage on-chain
+- ✅ Live at genatio.xyz on GenLayer Bradbury
+- ⏳ GEN donations are implemented in the contract using `@gl.public.write.payable` and `emit_transfer` to send GEN directly to creator wallets. Value transfers on Bradbury Phase 1 are still maturing — the fund button is currently disabled on the frontend until transfers are fully stable.
 
-## Getting Started
+### MVP 2 — Planned
+- 💰 Full GEN funding flow — donors send GEN directly to creator wallet once Bradbury value transfers are fully stable
+- 📱 Mobile responsive design — full support for all screen sizes and touch devices
+- 🏆 Milestone-based fund release — funds released in 30/40/30 splits as project hits verified milestones
 
-### Prerequisites
+## Prerequisites
 - Node.js 18+
-- A wallet (MetaMask or Rabby)
-- Testnet GEN from the [GenLayer Faucet](https://testnet-faucet.genlayer.foundation)
+- [Rabby Wallet](https://rabby.io) — recommended for best experience on GenLayer Bradbury
+- Testnet GEN from the [GenLayer Faucet](https://faucet.genlayer.com)
 
-### Run Locally
+Built by [Jason](https://x.com/ja__so)
 
-```bash
-git clone https://github.com/jason4185/genatio
-cd genatio/frontend
-npm install
-npm run dev
-```
-
-Visit `http://localhost:3000`
-
----
-
-## Network
-
-This app runs on **GenLayer Bradbury Testnet** — not for real funds.
-
----
-
-Built by [Jason](https://x.com/ja__so) · Submitted to the [GenLayer Builder Program](https://genlayer.com/builders)
+**P.S.** Genatio is itself an open source project — anyone can submit it on Genatio and let the Intelligent Contract verify it.
