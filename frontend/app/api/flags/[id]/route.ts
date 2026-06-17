@@ -18,7 +18,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     functionName: 'get_flags',
     args: [id],
   })
-  const data = JSON.parse(result as string)
-  cache.set(id, { data, timestamp: Date.now() })
-  return NextResponse.json(data)
+  try {
+    const data = JSON.parse(result as string)
+    cache.set(id, { data, timestamp: Date.now() })
+    return NextResponse.json(data)
+  } catch {
+    return NextResponse.json(null)
+  }
 }

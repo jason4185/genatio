@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   const hit = cache.get(cacheKey);
   if (hit && now - hit.timestamp < TTL) {
     return NextResponse.json(hit.data, {
-      headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=30" },
+      headers: { "Cache-Control": "no-store" },
     });
   }
 
@@ -41,6 +41,6 @@ export async function GET(request: Request) {
   cache.set(cacheKey, { data, timestamp: now });
 
   return NextResponse.json(data, {
-    headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=30" },
+    headers: { "Cache-Control": "no-store" },
   });
 }

@@ -7,6 +7,7 @@ import { config } from "@/lib/wagmi";
 import "@rainbow-me/rainbowkit/styles.css";
 import { SubmissionProvider } from "@/context/SubmissionContext";
 import { SubmissionBanner } from "@/components/SubmissionBanner";
+import { NetworkGuard } from "@/components/NetworkGuard";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           })}
         >
           <SubmissionProvider>
+            <NetworkGuard />
             <SubmissionBanner />
             {children}
           </SubmissionProvider>

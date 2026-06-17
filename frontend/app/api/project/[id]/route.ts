@@ -18,8 +18,9 @@ export async function GET(
 
   const hit = cache.get(cacheKey);
   if (hit && now - hit.timestamp < TTL) {
+    if (hit.data === null) return NextResponse.json(null, { status: 404 });
     return NextResponse.json(hit.data, {
-      headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=30" },
+      headers: { "Cache-Control": "no-store" },
     });
   }
 
@@ -30,7 +31,8 @@ export async function GET(
   });
 
   if (!result) {
-    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    cache.set(cacheKey, { data: null, timestamp: now });
+    return NextResponse.json(null, { status: 404 });
   }
 
   let data: unknown;
@@ -47,6 +49,6 @@ export async function GET(
   cache.set(cacheKey, { data, timestamp: now });
 
   return NextResponse.json(data, {
-    headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=30" },
+    headers: { "Cache-Control": "no-store" },
   });
 }

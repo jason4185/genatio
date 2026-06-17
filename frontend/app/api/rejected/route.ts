@@ -27,7 +27,11 @@ export async function GET(request: Request) {
     args: [wallet],
   })
 
-  const data = JSON.parse(result as string)
-  cache.set(wallet, { data, timestamp: Date.now() })
-  return NextResponse.json(data)
+  try {
+    const data = JSON.parse(result as string)
+    cache.set(wallet, { data, timestamp: Date.now() })
+    return NextResponse.json(data)
+  } catch {
+    return NextResponse.json([])
+  }
 }
