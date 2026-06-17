@@ -9,7 +9,7 @@ import { testnetBradbury as glTestnetBradbury } from "genlayer-js/chains";
 import type { Address } from "viem";
 import { Check, Loader2, AlertTriangle, Info, ArrowLeft, ArrowRight, Send, Wallet } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import { GENATIO_CONTRACT } from "@/lib/genatio";
+import { GENATIO_CONTRACT } from "@/lib/config";
 
 type Step = 1 | 2 | 3;
 type Duration = "7" | "14" | "30";
@@ -207,12 +207,14 @@ function NavButtons({
   nextLabel = "Next",
   nextIcon,
   loading,
+  loadingLabel,
 }: {
   onBack?: () => void;
   onNext: () => void;
   nextLabel?: string;
   nextIcon?: React.ReactNode;
   loading?: boolean;
+  loadingLabel?: string;
 }) {
   return (
     <div
@@ -278,7 +280,7 @@ function NavButtons({
         }}
       >
         {loading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : nextIcon}
-        {nextLabel}
+        {loading && loadingLabel ? loadingLabel : nextLabel}
       </button>
     </div>
   );
@@ -319,8 +321,56 @@ export default function SubmitPage() {
 
   const handleSubmit = async () => {
     if (!address) return;
-    setSubmitting(true);
     setSubmitError(null);
+    setSubmitting(true);
+
+    // Pre-check title uniqueness before asking user to sign
+    try {
+      const readClient = createClient({ chain: glTestnetBradbury });
+
+      const existing = await readClient.readContract({
+        address: GENATIO_CONTRACT as Address,
+        functionName: "get_project_by_title",
+        args: [form.title],
+      });
+      if (existing && JSON.parse(existing as string)) {
+        setSubmitting(false);
+        setSubmitError("Project name already exists. Please choose a unique name.");
+        return;
+      }
+
+      const rejected = await readClient.readContract({
+        address: GENATIO_CONTRACT as Address,
+        functionName: "get_rejected_projects",
+        args: [address],
+      });
+      const rejectedList = JSON.parse(rejected as string) as { title: string }[];
+      const titleTaken = rejectedList.some(
+        (p) => p.title.toLowerCase() === form.title.toLowerCase()
+      );
+      if (titleTaken) {
+        setSubmitting(false);
+        setSubmitError("Project name already exists. Please choose a unique name.");
+        return;
+      }
+
+      const projectsRaw = await readClient.readContract({
+        address: GENATIO_CONTRACT as Address,
+        functionName: "get_projects",
+        args: ["active"],
+      });
+      const allProjects = JSON.parse(projectsRaw as string) as { wallet: string }[];
+      const myActive = allProjects.filter(
+        (p) => p.wallet.toLowerCase() === address.toLowerCase()
+      );
+      if (myActive.length >= 2) {
+        setSubmitError("You already have 2 active projects. Close one before submitting a new project.");
+        setSubmitting(false);
+        return;
+      }
+    } catch {
+      // Read failed — don't block submission, contract enforces it on-chain
+    }
 
     try {
       const glClient = createClient({
@@ -372,86 +422,6 @@ export default function SubmitPage() {
     setStep(to);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
-  // ── Submitting state ──────────────────────────────────────────────────────
-  if (submitting) {
-    return (
-      <>
-        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-        <div style={{ minHeight: "100vh" }}>
-          <Navbar />
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: "calc(100vh - 64px)",
-              paddingTop: "64px",
-              gap: "1.5rem",
-              textAlign: "center",
-              padding: "64px 1.5rem 4rem",
-            }}
-          >
-            <div
-              style={{
-                width: "64px",
-                height: "64px",
-                borderRadius: "50%",
-                backgroundColor: "color-mix(in srgb, var(--color-accent-blue) 10%, transparent)",
-                border: "1px solid color-mix(in srgb, var(--color-accent-blue) 30%, transparent)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--color-accent-blue)",
-              }}
-            >
-              <Loader2 size={28} style={{ animation: "spin 1s linear infinite" }} />
-            </div>
-            <div>
-              <h2
-                style={{
-                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                  fontSize: "1.25rem",
-                  fontWeight: 700,
-                  color: "var(--color-text-primary)",
-                  margin: "0 0 0.5rem",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                Submitting your project...
-              </h2>
-              <p
-                style={{
-                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                  fontSize: "0.9375rem",
-                  color: "var(--color-text-secondary)",
-                  margin: 0,
-                  maxWidth: "400px",
-                }}
-              >
-                Confirm the transaction in your wallet
-              </p>
-            </div>
-            <div style={{ display: "flex", gap: "0.375rem", marginTop: "0.5rem" }}>
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  style={{
-                    width: "6px",
-                    height: "6px",
-                    borderRadius: "50%",
-                    backgroundColor: "var(--color-accent-blue)",
-                    animation: `pulse-live 1.4s ease-in-out ${i * 0.2}s infinite`,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
 
   // ── Wallet gate ───────────────────────────────────────────────────────────
   if (!isConnected) {
@@ -1061,8 +1031,9 @@ export default function SubmitPage() {
                   <NavButtons
                     onBack={() => goBack(2)}
                     onNext={handleSubmit}
-                    nextLabel="Submit Project"
-                    nextIcon={<Send size={14} />}
+                    nextLabel="Submit Your Project →"
+                    loadingLabel="Submitting..."
+                    loading={submitting}
                   />
                 </>
               )}

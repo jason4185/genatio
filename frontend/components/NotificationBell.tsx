@@ -5,49 +5,35 @@ import { Bell, X, CheckCircle, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAccount } from "wagmi";
 import type { ContractFlagResult } from "@/app/api/my-flags/route";
+import { useSubmission, type SubmissionNotification } from "@/context/SubmissionContext";
 
-// ── Notification item ──────────────────────────────────────────────────────
+// ── Flag item ──────────────────────────────────────────────────────────────
 
-function NotificationItem({
+function FlagItem({
   flag,
-  read,
-  onMarkRead,
   onDismiss,
 }: {
   flag: ContractFlagResult;
-  read: boolean;
-  onMarkRead: () => void;
   onDismiss: () => void;
 }) {
   const isValid = flag.resolution === "VALID";
-
-  const icon = isValid ? (
-    <AlertCircle size={14} />
-  ) : (
-    <CheckCircle size={14} />
-  );
-
+  const accentColor = isValid ? "var(--color-danger)" : "var(--color-success)";
   const text = isValid
     ? `Flag confirmed — "${flag.projectTitle}" has been removed`
     : `Flag reviewed — "${flag.projectTitle}" appears legitimate`;
-
-  const accentColor = isValid ? "var(--color-danger)" : "var(--color-success)";
 
   return (
     <div
       style={{
         padding: "0.875rem 1rem",
         borderBottom: "1px solid var(--color-border-subtle)",
-        backgroundColor: read
-          ? "transparent"
-          : "color-mix(in srgb, var(--color-accent-blue) 4%, transparent)",
         display: "flex",
         gap: "0.75rem",
         alignItems: "flex-start",
       }}
     >
       <div style={{ flexShrink: 0, paddingTop: "1px", color: accentColor }}>
-        {icon}
+        {isValid ? <AlertCircle size={14} /> : <CheckCircle size={14} />}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p
@@ -67,30 +53,136 @@ function NotificationItem({
               fontFamily: "var(--font-jakarta), system-ui, sans-serif",
               fontSize: "0.75rem",
               color: "var(--color-text-muted)",
-              margin: "0 0 0.5rem",
+              margin: 0,
               lineHeight: 1.5,
             }}
           >
             {flag.reason}
           </p>
         )}
-        {!read && (
-          <button
-            onClick={onMarkRead}
+      </div>
+      <button
+        onClick={onDismiss}
+        style={{
+          flexShrink: 0,
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          color: "var(--color-text-muted)",
+          padding: "0.125rem",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <X size={12} />
+      </button>
+    </div>
+  );
+}
+
+// ── Submission item ────────────────────────────────────────────────────────
+
+function timeAgo(ts: number): string {
+  const d = Date.now() - ts;
+  const h = Math.floor(d / 3_600_000);
+  const m = Math.floor(d / 60_000);
+  if (h >= 24) return `${Math.floor(h / 24)}d ago`;
+  if (h > 0) return `${h}h ago`;
+  if (m > 0) return `${m}m ago`;
+  return "just now";
+}
+
+function SubmissionItem({
+  notif,
+  onDismiss,
+}: {
+  notif: SubmissionNotification;
+  onDismiss: () => void;
+}) {
+  const isApproved = notif.type === "approved";
+  const accentColor = isApproved ? "var(--color-success)" : "var(--color-danger)";
+  const text = isApproved
+    ? `"${notif.title}" was approved — Score ${notif.score}/100`
+    : `"${notif.title}" was not approved — Score ${notif.score}/100`;
+
+  return (
+    <div
+      style={{
+        padding: "0.875rem 1rem",
+        borderBottom: "1px solid var(--color-border-subtle)",
+        backgroundColor: notif.read
+          ? "transparent"
+          : "color-mix(in srgb, var(--color-accent-blue) 4%, transparent)",
+        display: "flex",
+        gap: "0.75rem",
+        alignItems: "flex-start",
+      }}
+    >
+      <div style={{ flexShrink: 0, paddingTop: "1px", color: accentColor }}>
+        {isApproved ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p
+          style={{
+            fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+            fontSize: "0.8125rem",
+            color: "var(--color-text-primary)",
+            margin: "0 0 0.25rem",
+            lineHeight: 1.5,
+          }}
+        >
+          {text}
+        </p>
+        {!isApproved && notif.reason && (
+          <p
             style={{
               fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-              fontSize: "0.6875rem",
-              color: "var(--color-accent-blue)",
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
-              textDecoration: "underline",
+              fontSize: "0.75rem",
+              color: "var(--color-text-muted)",
+              margin: "0 0 0.25rem",
+              lineHeight: 1.5,
             }}
           >
-            Mark as read
-          </button>
+            {notif.reason}
+          </p>
         )}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "0.125rem" }}>
+          <span
+            style={{
+              fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+              fontSize: "0.6875rem",
+              color: "var(--color-text-muted)",
+            }}
+          >
+            {timeAgo(notif.timestamp)}
+          </span>
+          {isApproved && notif.projectId && (
+            <a
+              href={`/project/${notif.projectId}`}
+              style={{
+                fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                fontSize: "0.6875rem",
+                color: "var(--color-accent-blue)",
+                textDecoration: "none",
+              }}
+            >
+              View project →
+            </a>
+          )}
+          {!isApproved && (
+            <a
+              href="/submit"
+              style={{
+                fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                fontSize: "0.6875rem",
+                color: "var(--color-accent-blue)",
+                textDecoration: "none",
+              }}
+            >
+              Resubmit →
+            </a>
+          )}
+        </div>
       </div>
       <button
         onClick={onDismiss}
@@ -115,28 +207,28 @@ function NotificationItem({
 
 export function NotificationBell() {
   const { address } = useAccount();
+  const { notifications: submissionNotifs, markAllNotifsRead, dismissNotif } = useSubmission();
+
   const [flags, setFlags] = useState<ContractFlagResult[]>([]);
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-  const [read, setRead] = useState<Set<string>>(new Set());
+  const [dismissedFlags, setDismissedFlags] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Fetch from contract API on wallet connect
   useEffect(() => {
     if (!address) { setFlags([]); return; }
-    let cancelled = false;
-
-    fetch(`/api/my-flags?wallet=${address}`)
-      .then(r => r.ok ? r.json() : [])
-      .then((data: ContractFlagResult[]) => {
-        if (!cancelled) setFlags(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {});
-
-    return () => { cancelled = true; };
+    const fetchFlags = () => {
+      fetch(`/api/my-flags?wallet=${address}`)
+        .then(r => r.ok ? r.json() : [])
+        .then((data: ContractFlagResult[]) => {
+          setFlags(Array.isArray(data) ? data : []);
+        })
+        .catch(() => {});
+    };
+    fetchFlags();
+    const interval = setInterval(fetchFlags, 30_000);
+    return () => clearInterval(interval);
   }, [address]);
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
@@ -147,24 +239,26 @@ export function NotificationBell() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Mark all submission notifs as read when bell opens
+  useEffect(() => {
+    if (open) markAllNotifsRead();
+  }, [open, markAllNotifsRead]);
+
   if (!address) return null;
 
-  const visible = flags.filter(f => !dismissed.has(f.projectId));
-  const unreadCount = visible.filter(f => !read.has(f.projectId)).length;
+  const visibleFlags = flags.filter(f => !dismissedFlags.has(f.projectId));
 
-  const markRead = (projectId: string) => {
-    setRead(prev => new Set(prev).add(projectId));
-  };
+  // Show submission notifs from last 24h
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const recentSubmissions = submissionNotifs.filter(n => n.timestamp > cutoff);
 
-  const dismiss = (projectId: string) => {
-    setDismissed(prev => new Set(prev).add(projectId));
-  };
+  const unreadCount = recentSubmissions.filter(n => !n.read).length;
+  const totalVisible = visibleFlags.length + recentSubmissions.length;
 
   return (
     <div ref={wrapperRef} style={{ position: "relative" }}>
-      {/* Bell trigger */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(v => !v)}
         aria-label="Notifications"
         style={{
           position: "relative",
@@ -178,10 +272,8 @@ export function NotificationBell() {
           borderRadius: "6px",
           transition: "color 0.2s ease",
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-text-primary)")}
-        onMouseLeave={(e) => {
-          if (!open) e.currentTarget.style.color = "var(--color-text-secondary)";
-        }}
+        onMouseEnter={e => (e.currentTarget.style.color = "var(--color-text-primary)")}
+        onMouseLeave={e => { if (!open) e.currentTarget.style.color = "var(--color-text-secondary)"; }}
       >
         <Bell size={18} />
         <AnimatePresence>
@@ -207,7 +299,6 @@ export function NotificationBell() {
         </AnimatePresence>
       </button>
 
-      {/* Dropdown */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -229,7 +320,6 @@ export function NotificationBell() {
               overflow: "hidden",
             }}
           >
-            {/* Header */}
             <div
               style={{
                 padding: "0.875rem 1rem",
@@ -263,9 +353,8 @@ export function NotificationBell() {
               )}
             </div>
 
-            {/* Body */}
-            <div style={{ maxHeight: "360px", overflowY: "auto" }}>
-              {visible.length === 0 ? (
+            <div style={{ maxHeight: "400px", overflowY: "auto" }}>
+              {totalVisible === 0 ? (
                 <div
                   style={{
                     padding: "2.5rem 1rem",
@@ -278,15 +367,22 @@ export function NotificationBell() {
                   No notifications yet.
                 </div>
               ) : (
-                visible.map((flag) => (
-                  <NotificationItem
-                    key={flag.projectId}
-                    flag={flag}
-                    read={read.has(flag.projectId)}
-                    onMarkRead={() => markRead(flag.projectId)}
-                    onDismiss={() => dismiss(flag.projectId)}
-                  />
-                ))
+                <>
+                  {recentSubmissions.map(notif => (
+                    <SubmissionItem
+                      key={notif.id}
+                      notif={notif}
+                      onDismiss={() => dismissNotif(notif.id)}
+                    />
+                  ))}
+                  {visibleFlags.map(flag => (
+                    <FlagItem
+                      key={flag.projectId}
+                      flag={flag}
+                      onDismiss={() => setDismissedFlags(prev => new Set(prev).add(flag.projectId))}
+                    />
+                  ))}
+                </>
               )}
             </div>
           </motion.div>

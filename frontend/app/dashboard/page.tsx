@@ -19,10 +19,14 @@ interface Project {
   wallet?: string;
 }
 
-interface Rejection {
+interface RejectedProject {
+  id: string;
   title: string;
-  score: number;
-  timestamp: number;
+  wallet: string;
+  score: string;
+  status: string;
+  reason: string;
+  created_at: string;
 }
 
 interface FlagResult {
@@ -241,7 +245,7 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
   );
 }
 
-function RejectionCard({ rejection, index }: { rejection: Rejection; index: number }) {
+function RejectedProjectCard({ project, index }: { project: RejectedProject; index: number }) {
   return (
     <motion.div
       custom={index}
@@ -250,75 +254,85 @@ function RejectionCard({ rejection, index }: { rejection: Rejection; index: numb
       animate="visible"
       style={{
         backgroundColor: "rgba(var(--color-surface-rgb), 0.8)",
-        border: "1px solid color-mix(in srgb, var(--color-danger) 25%, transparent)",
+        border: "1px solid color-mix(in srgb, var(--color-danger) 30%, transparent)",
         borderRadius: "12px",
         padding: "1.25rem 1.5rem",
         display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: "1rem",
-        flexWrap: "wrap",
+        flexDirection: "column",
+        gap: "0.75rem",
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem", minWidth: 0, flex: 1 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", flexWrap: "wrap" }}>
-          <span
-            style={{
-              fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-              fontSize: "0.9375rem",
-              fontWeight: 600,
-              color: "var(--color-text-primary)",
-            }}
-          >
-            {rejection.title}
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-              fontSize: "0.625rem",
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              color: "var(--color-danger)",
-              backgroundColor: "color-mix(in srgb, var(--color-danger) 8%, transparent)",
-              border: "1px solid var(--color-danger)",
-              borderRadius: "100px",
-              padding: "0.2rem 0.6rem",
-              flexShrink: 0,
-            }}
-          >
-            REJECTED
-          </span>
-        </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem", flexWrap: "wrap" }}>
         <span
           style={{
             fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-            fontSize: "0.8125rem",
-            color: "var(--color-text-secondary)",
+            fontSize: "0.9375rem",
+            fontWeight: 600,
+            color: "var(--color-text-primary)",
           }}
         >
-          Score {rejection.score}/100 — Did not meet minimum threshold of 40/100
+          {project.title}
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+            fontSize: "0.625rem",
+            fontWeight: 700,
+            letterSpacing: "0.08em",
+            color: "var(--color-danger)",
+            backgroundColor: "color-mix(in srgb, var(--color-danger) 8%, transparent)",
+            border: "1px solid var(--color-danger)",
+            borderRadius: "100px",
+            padding: "0.2rem 0.6rem",
+            flexShrink: 0,
+          }}
+        >
+          Score {project.score}/100
         </span>
       </div>
+
+      <p
+        style={{
+          fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+          fontSize: "0.8125rem",
+          color: "var(--color-text-secondary)",
+          margin: 0,
+          lineHeight: 1.55,
+        }}
+      >
+        {project.reason}
+      </p>
+
+      <p
+        style={{
+          fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+          fontSize: "0.75rem",
+          color: "var(--color-text-muted)",
+          margin: 0,
+        }}
+      >
+        Submitted: {new Date(project.created_at).toLocaleDateString()}
+      </p>
 
       <a
         href="/submit"
         style={{
+          alignSelf: "flex-start",
           display: "inline-flex",
           alignItems: "center",
           gap: "0.375rem",
           fontFamily: "var(--font-jakarta), system-ui, sans-serif",
           fontSize: "0.8125rem",
           fontWeight: 600,
-          color: "var(--color-text-primary)",
-          backgroundColor: "var(--color-accent-blue)",
+          color: "var(--color-accent-blue)",
           textDecoration: "none",
+          border: "1px solid color-mix(in srgb, var(--color-accent-blue) 35%, transparent)",
           borderRadius: "8px",
           padding: "0.375rem 0.875rem",
-          flexShrink: 0,
-          transition: "opacity 0.2s ease",
+          transition: "background-color 0.2s ease",
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-accent-blue) 8%, transparent)")}
+        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
       >
         <RefreshCw size={12} /> Resubmit
       </a>
@@ -485,7 +499,8 @@ function DashboardContent() {
 
   const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
-  const [rejection, setRejection] = useState<Rejection | null>(null);
+  const [rejectedProjects, setRejectedProjects] = useState<RejectedProject[]>([]);
+  const [rejectedLoading, setRejectedLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [secondsAgo, setSecondsAgo] = useState(0);
 
@@ -534,23 +549,37 @@ function DashboardContent() {
     [isConnected, address]
   );
 
+  const fetchRejected = useCallback(
+    async (isInitial = false) => {
+      if (!isConnected || !address) return;
+      if (isInitial) setRejectedLoading(true);
+      try {
+        const res = await fetch(`/api/rejected?wallet=${address}`);
+        if (res.ok) {
+          const data: unknown = await res.json();
+          setRejectedProjects(Array.isArray(data) ? (data as RejectedProject[]) : []);
+        }
+      } finally {
+        if (isInitial) setRejectedLoading(false);
+      }
+    },
+    [isConnected, address]
+  );
+
   useEffect(() => {
     if (!isConnected || !address) return;
 
     fetchProjects(true);
     fetchFlags(true);
+    fetchRejected(true);
     const interval = setInterval(() => {
       fetchProjects(false);
       fetchFlags(false);
+      fetchRejected(false);
     }, 30_000);
 
-    try {
-      const stored = sessionStorage.getItem(`rejection_${address}`);
-      if (stored) setRejection(JSON.parse(stored));
-    } catch {}
-
     return () => clearInterval(interval);
-  }, [isConnected, address, fetchProjects, fetchFlags]);
+  }, [isConnected, address, fetchProjects, fetchFlags, fetchRejected]);
 
   useEffect(() => {
     if (!lastUpdated) return;
@@ -593,7 +622,7 @@ function DashboardContent() {
     );
   }
 
-  const initialLoading = projectsLoading || flagsLoading;
+  const initialLoading = projectsLoading || flagsLoading || rejectedLoading;
 
   if (initialLoading) {
     return (
@@ -610,7 +639,7 @@ function DashboardContent() {
         <SectionHeading>My Projects</SectionHeading>
 
         <AnimatePresence mode="wait">
-          {myProjects.length === 0 && !rejection ? (
+          {myProjects.length === 0 ? (
             <motion.div
               key="no-projects"
               initial={{ opacity: 0 }}
@@ -682,9 +711,6 @@ function DashboardContent() {
               {myProjects.map((p, i) => (
                 <ProjectCard key={p.id} project={p} index={i} />
               ))}
-              {rejection && (
-                <RejectionCard rejection={rejection} index={myProjects.length} />
-              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -703,6 +729,23 @@ function DashboardContent() {
           </p>
         )}
       </section>
+
+      {/* ── Not Approved ── */}
+      {rejectedProjects.length > 0 && (
+        <section>
+          <SectionHeading>Not Approved</SectionHeading>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
+            style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+          >
+            {rejectedProjects.map((p, i) => (
+              <RejectedProjectCard key={p.id} project={p} index={i} />
+            ))}
+          </motion.div>
+        </section>
+      )}
 
       {/* ── My Flags ── */}
       <section>

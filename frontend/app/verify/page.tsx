@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 const RADIUS = 36;
@@ -90,13 +90,208 @@ function AnimatedScoreRing({
 }
 
 
+// ── Flag result card ──────────────────────────────────────────────────────
+
+function FlagVerifyContent({
+  title,
+  valid,
+  projectId,
+}: {
+  title: string;
+  valid: boolean;
+  projectId: string | null;
+}) {
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: "rgba(var(--color-surface-rgb), 0.7)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
+    border: "1px solid var(--color-border-subtle)",
+    borderRadius: "12px",
+  };
+
+  const accentColor = valid ? "var(--color-danger)" : "var(--color-success)";
+  const IconCmp = valid ? AlertCircle : CheckCircle;
+  const stateKey = valid ? "flag-valid" : "flag-invalid";
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={stateKey}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.25 }}
+        style={{ width: "100%", maxWidth: "640px", display: "flex", flexDirection: "column", gap: "1.5rem" }}
+      >
+        {/* Verdict card */}
+        <motion.div
+          style={{
+            ...cardStyle,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            textAlign: "center",
+            padding: "2.5rem 2rem",
+            gap: "1.25rem",
+          }}
+        >
+          <motion.div
+            initial={{ scale: 0.4, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <IconCmp size={48} color={accentColor} strokeWidth={1.5} />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+                fontSize: "0.6875rem",
+                fontWeight: 700,
+                color: accentColor,
+                letterSpacing: "0.1em",
+                border: `1px solid color-mix(in srgb, ${accentColor} 25%, transparent)`,
+                borderRadius: "100px",
+                padding: "0.2rem 0.75rem",
+                alignSelf: "center",
+              }}
+            >
+              {valid ? "CONFIRMED" : "DISMISSED"}
+            </span>
+
+            <motion.h1
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
+              style={{
+                fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                fontSize: "clamp(1.5rem, 4vw, 2rem)",
+                fontWeight: 700,
+                color: accentColor,
+                letterSpacing: "-0.03em",
+                lineHeight: 1.15,
+                margin: 0,
+              }}
+            >
+              {valid ? "Flag Confirmed" : "Flag Dismissed"}
+            </motion.h1>
+          </motion.div>
+
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
+            style={{
+              fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+              fontSize: "0.9375rem",
+              color: "var(--color-text-secondary)",
+              margin: 0,
+              lineHeight: 1.6,
+              maxWidth: "440px",
+            }}
+          >
+            {valid
+              ? <>The project <strong style={{ color: "var(--color-text-primary)" }}>&ldquo;{title}&rdquo;</strong> has been removed from Genatio.</>
+              : <>The project <strong style={{ color: "var(--color-text-primary)" }}>&ldquo;{title}&rdquo;</strong> appears legitimate and remains on Genatio.</>
+            }
+          </motion.p>
+        </motion.div>
+
+        {/* CTAs */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.6 }}
+          style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+        >
+          {!valid && projectId && (
+            <a
+              href={`/project/${projectId}`}
+              style={{
+                fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                fontSize: "0.9375rem",
+                fontWeight: 600,
+                color: "var(--color-text-primary)",
+                backgroundColor: "var(--color-accent-blue)",
+                borderRadius: "10px",
+                padding: "0.875rem 1.5rem",
+                textDecoration: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                letterSpacing: "-0.01em",
+                transition: "opacity 0.2s ease",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
+              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+            >
+              Back to Project &rarr;
+            </a>
+          )}
+          {valid && (
+            <a
+              href="/dashboard"
+              style={{
+                fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                fontSize: "0.9375rem",
+                fontWeight: 600,
+                color: "var(--color-text-primary)",
+                backgroundColor: "var(--color-accent-blue)",
+                borderRadius: "10px",
+                padding: "0.875rem 1.5rem",
+                textDecoration: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                letterSpacing: "-0.01em",
+                transition: "opacity 0.2s ease",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
+              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+            >
+              Go to Dashboard &rarr;
+            </a>
+          )}
+          <a
+            href="/browse"
+            className="verify-btn-ghost"
+          >
+            Browse Projects
+          </a>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+
 function VerifyContent() {
   const searchParams = useSearchParams();
 
+  const typeParam = searchParams.get("type");
   const statusParam = searchParams.get("status") ?? "rejected";
   const scoreParam = Number(searchParams.get("score")) || 0;
   const projectId = searchParams.get("project_id");
   const titleParam = searchParams.get("title") ?? "Your project";
+  const reasonParam = searchParams.get("reason") ?? "";
+  const resolutionParam = searchParams.get("resolution");
+
+  // Flag result flow
+  if (typeParam === "flag") {
+    return (
+      <FlagVerifyContent
+        title={titleParam}
+        valid={resolutionParam === "valid"}
+        projectId={projectId}
+      />
+    );
+  }
 
   const approved = statusParam === "active";
   const score = scoreParam;
@@ -223,16 +418,20 @@ function VerifyContent() {
                 lineHeight: 1.6,
               }}
             >
-              Your project did not meet the minimum threshold of{" "}
-              <span
-                style={{
-                  fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-                  fontWeight: 600,
-                  color: "var(--color-text-primary)",
-                }}
-              >
-                40 / 100
-              </span>
+              {reasonParam ? reasonParam : (
+                <>
+                  Your project did not meet the minimum threshold of{" "}
+                  <span
+                    style={{
+                      fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+                      fontWeight: 600,
+                      color: "var(--color-text-primary)",
+                    }}
+                  >
+                    40 / 100
+                  </span>
+                </>
+              )}
             </motion.p>
           )}
         </motion.div>

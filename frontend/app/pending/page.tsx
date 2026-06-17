@@ -6,8 +6,9 @@ import { useAccount } from "wagmi";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import { genLayerClient } from "@/lib/genatio";
+import { useSubmission } from "@/context/SubmissionContext";
 
-type PendingPhase = "waiting" | "check_dashboard" | "verified_flash";
+type PendingPhase = "waiting" | "check_dashboard" | "verified_flash" | "error";
 
 function ElapsedTimer({ startTime }: { startTime: number }) {
   const [elapsed, setElapsed] = useState(0);
@@ -135,10 +136,18 @@ function PendingContent() {
   const tx = searchParams.get("tx") ?? "";
   const title = searchParams.get("title") ?? "your project";
 
+  const { setPending, clearPending } = useSubmission();
+
   const [startTime] = useState(() => Date.now());
   const [phase, setPhase] = useState<PendingPhase>("waiting");
+  const [error, setError] = useState<string>("");
   const pollingRef = useRef(false);
   const redirectedRef = useRef(false);
+
+  // Save tx to context so banner can pick it up if user navigates away
+  useEffect(() => {
+    if (tx && title) setPending(title, tx);
+  }, [tx, title, setPending]);
 
   const truncatedTx = tx.length > 12
     ? `${tx.slice(0, 6)}…${tx.slice(-4)}`
@@ -153,6 +162,7 @@ function PendingContent() {
         const receipt = await (genLayerClient as any).waitForTransactionReceipt({
           hash: tx,
           status: "ACCEPTED",
+          pollingInterval: 5000,
         });
 
         if (redirectedRef.current) return;
@@ -160,7 +170,7 @@ function PendingContent() {
         const leaderReceipt = receipt?.consensus_data?.leader_receipt?.[0];
         const result = leaderReceipt?.result;
 
-        let parsed: { status?: string; score?: number; project_id?: string } = {};
+        let parsed: { status?: string; score?: number; project_id?: string; reason?: string } = {};
         if (typeof result === "string") {
           try { parsed = JSON.parse(result); } catch {}
         } else if (result && typeof result === "object") {
@@ -173,24 +183,35 @@ function PendingContent() {
           return;
         }
 
+        if (parsed.status === "error") {
+          setError(parsed.reason || "Something went wrong. Please try again.");
+          setPhase("error");
+          return;
+        }
+
         const status = parsed.status;
         const score = parsed.score ?? 0;
         const projectId = parsed.project_id;
         const approved = status === "active";
 
-        if (!approved && address) {
-          try {
-            sessionStorage.setItem(`rejection_${address}`, JSON.stringify({
-              title,
-              score,
-              timestamp: Date.now(),
-            }));
-          } catch {}
-        }
-
         const params = new URLSearchParams({ status, score: String(score), title });
         if (approved && projectId) params.set("project_id", projectId);
 
+        // Fetch rejection reason — wait 2s then bust cache to get fresh contract data
+        if (!approved && address) {
+          try {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const res = await fetch(`/api/rejected?wallet=${address}&bust=${Date.now()}`);
+            const list = await res.json() as { title: string; reason: string }[];
+            const match = list.find((p) => p.title.toLowerCase() === title.toLowerCase());
+            const reason = match?.reason || "Your project did not meet the minimum verification threshold of 40 points required for listing on Genatio.";
+            params.set("reason", reason);
+          } catch {
+            params.set("reason", "Your project did not meet the minimum verification threshold of 40 points required for listing on Genatio.");
+          }
+        }
+
+        clearPending();
         redirectedRef.current = true;
         router.push(`/verify?${params.toString()}`);
       } catch {
@@ -226,12 +247,13 @@ function PendingContent() {
             title,
           });
           if (match.id != null) params.set("project_id", String(match.id));
+          clearPending();
           router.push(`/verify?${params.toString()}`);
         }
       } catch {}
     };
 
-    const interval = setInterval(check, 30_000);
+    const interval = setInterval(check, 5_000);
     return () => clearInterval(interval);
   }, [address, title, router]);
 
@@ -352,6 +374,59 @@ function PendingContent() {
               }}
             >
               Keep this tab open to see your result. If you close it, check My Dashboard in 5 minutes.
+            </div>
+
+            <div style={{ display: "flex", gap: "1rem", justifyContent: "center", width: "100%" }}>
+              <button
+                onClick={() => router.push("/dashboard")}
+                style={{
+                  background: "transparent",
+                  border: "1px solid var(--color-border-subtle)",
+                  color: "var(--color-text-secondary)",
+                  borderRadius: "8px",
+                  padding: "0.75rem 1.5rem",
+                  cursor: "pointer",
+                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                  fontWeight: 600,
+                  fontSize: "0.9rem",
+                  transition: "border-color 0.2s ease, color 0.2s ease",
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = "var(--color-text-muted)";
+                  e.currentTarget.style.color = "var(--color-text-primary)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = "var(--color-border-subtle)";
+                  e.currentTarget.style.color = "var(--color-text-secondary)";
+                }}
+              >
+                Go to Dashboard →
+              </button>
+              <button
+                onClick={() => router.push("/")}
+                style={{
+                  background: "transparent",
+                  border: "1px solid var(--color-border-subtle)",
+                  color: "var(--color-text-secondary)",
+                  borderRadius: "8px",
+                  padding: "0.75rem 1.5rem",
+                  cursor: "pointer",
+                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                  fontWeight: 600,
+                  fontSize: "0.9rem",
+                  transition: "border-color 0.2s ease, color 0.2s ease",
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = "var(--color-text-muted)";
+                  e.currentTarget.style.color = "var(--color-text-primary)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = "var(--color-border-subtle)";
+                  e.currentTarget.style.color = "var(--color-text-secondary)";
+                }}
+              >
+                Go Home
+              </button>
             </div>
           </motion.div>
         )}
@@ -475,6 +550,85 @@ function PendingContent() {
                 Redirecting to your results...
               </p>
             </div>
+          </motion.div>
+        )}
+
+        {phase === "error" && (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.4, ease: "easeOut" as const }}
+            style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", gap: "1.75rem", textAlign: "center" }}
+          >
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: "50%",
+                backgroundColor: "color-mix(in srgb, var(--color-danger) 12%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--color-danger) 30%, transparent)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="var(--color-danger)" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <h1
+                style={{
+                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                  fontSize: "clamp(1.125rem, 3vw, 1.5rem)",
+                  fontWeight: 700,
+                  color: "var(--color-text-primary)",
+                  letterSpacing: "-0.03em",
+                  lineHeight: 1.2,
+                  margin: 0,
+                }}
+              >
+                Submission Error
+              </h1>
+              <p
+                style={{
+                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                  fontSize: "0.9375rem",
+                  color: "var(--color-danger)",
+                  margin: 0,
+                  lineHeight: 1.65,
+                  maxWidth: "380px",
+                }}
+              >
+                {error}
+              </p>
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push("/submit")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.75rem 1.5rem",
+                backgroundColor: "var(--color-accent-blue)",
+                color: "var(--color-background)",
+                border: "none",
+                borderRadius: "8px",
+                fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                fontSize: "0.9375rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Go Back and Fix
+            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>

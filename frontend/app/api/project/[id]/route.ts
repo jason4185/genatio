@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "genlayer-js";
 import { testnetBradbury } from "genlayer-js/chains";
-import { GENATIO_CONTRACT } from "@/lib/genatio";
+import { GENATIO_CONTRACT } from "@/lib/config";
 
 const client = createClient({ chain: testnetBradbury });
 
 const cache = new Map<string, { data: unknown; timestamp: number }>();
-const TTL = 25_000;
+const TTL = 8_000;
 
 export async function GET(
   _request: Request,

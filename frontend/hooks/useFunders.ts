@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "genlayer-js";
 import { testnetBradbury } from "genlayer-js/chains";
-import { GENATIO_CONTRACT } from "@/lib/genatio";
+import { GENATIO_CONTRACT } from "@/lib/config";
 import { getCached, setCached, FUNDERS_TTL } from "@/lib/contractCache";
 import type { Address } from "viem";
 

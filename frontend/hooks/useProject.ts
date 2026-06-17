@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Project } from "./useProjects";
 
-export function useProject(projectId: string | null) {
+export function useProject(projectId: string | null, pollInterval = 30_000) {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(!!projectId);
   const [error, setError] = useState<string | null>(null);
@@ -40,9 +40,9 @@ export function useProject(projectId: string | null) {
     }
 
     fetchProject(true);
-    const interval = setInterval(() => fetchProject(false), 30_000);
+    const interval = setInterval(() => fetchProject(false), pollInterval);
     return () => clearInterval(interval);
-  }, [projectId, fetchProject]);
+  }, [projectId, fetchProject, pollInterval]);
 
   return { project, loading, error };
 }
