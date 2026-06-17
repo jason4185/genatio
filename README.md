@@ -50,8 +50,8 @@ Approved projects go live immediately. The community funds them directly on-chai
 
 | Contract | Address | Network |
 |----------|---------|---------|
-| Genatio | `0x23a0342Edc685fcCb50b3e3C2a86318c93d79942` | GenLayer Bradbury |
-| GenatioDispute | `0x569c9E3C9Ac23444D334710e507E1035fe09283F` | GenLayer Bradbury |
+| Genatio | `0x544B6dEb105a02f585f0Aa3aef6398B5E9cD5B77` | GenLayer Bradbury |
+| GenatioDispute | `0x4dE9635b81DbfbC9E590C868d698dAF09f20C46E` | GenLayer Bradbury |
 
 **Chain ID:** 4221 · **RPC:** https://rpc-bradbury.genlayer.com · **Explorer:** https://explorer-bradbury.genlayer.com
 
@@ -101,15 +101,25 @@ genatio/
 
 - `gl.nondet.web.get()` — GitHub API data fetching
 - `gl.nondet.web.render()` — Live URL verification
-- `gl.nondet.exec_prompt()` — AI project scoring and flag review
-- `gl.vm.run_nondet_unsafe()` — Custom validator logic
-- `gl.message.sender_address` — Wallet identity
-- `gl.message.value` — GEN donation amounts
+- `gl.nondet.exec_prompt()` — AI project scoring and flag evaluation
+- `gl.vm.run_nondet_unsafe()` — Custom validator for verification and flag consensus
+- `gl.vm.Return` — Validator type check
+- `gl.message.sender_address` — Wallet identity on every write method
+- `gl.message.value` — GEN amount in fund_project
 - `gl.message_raw['datetime']` — On-chain timestamps
-- `@gl.public.write.payable` — Payable funding method
-- `gl.get_contract_at().view()` — Cross-contract reads
-- `gl.get_contract_at().emit()` — Cross-contract writes
-- `TreeMap`, `DynArray`, `u256` — Native storage types
+- `@gl.public.write.payable` — Payable fund_project method
+- `@gl.evm.contract_interface` — EOA recipient wrapper for GEN transfers
+- `emit_transfer()` — Send GEN to creator wallet
+- `gl.get_contract_at()` — Cross-contract reference
+- `.view()` — Read project data from main contract
+- `.emit(on="accepted")` — Call reject_project on main contract
+- `TreeMap[str, str]` — campaigns, rejected storage
+- `DynArray[str]` — donations, blacklist, reports
+- `@gl.public.view` — All read methods
+- `@gl.public.write` — All write methods
+- `Address()` — Contract address handling
+
+**Total: 19 GenLayer methods across 8 categories**
 
 ---
 
