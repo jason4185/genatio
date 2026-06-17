@@ -17,10 +17,10 @@ import ScoreRing from "@/components/ScoreRing";
 import FundingProgress from "@/components/FundingProgress";
 import { useProject } from "@/hooks/useProject";
 import { useFunders } from "@/hooks/useFunders";
-import { DISPUTE_CONTRACT, GENATIO_CONTRACT } from "@/lib/genatio";
+import { DISPUTE_CONTRACT } from "@/lib/genatio";
 
 type FlagPhase = "form" | "submitting" | "pending" | "waiting" | "resolved_invalid" | "resolved_valid";
-type FundPhase = "form" | "submitting" | "pending" | "success" | "error";
+
 type BannerType = "pending" | "invalid" | "valid";
 
 const FLAG_REASONS = [
@@ -447,70 +447,6 @@ export default function ProjectDetailPage() {
     setFlagError(null);
   };
 
-  // ── Fund modal state ─────────────────────────────────────────────────────
-  const [fundModalOpen, setFundModalOpen] = useState(false);
-  const [fundAmount, setFundAmount] = useState("");
-  const [fundPhase, setFundPhase] = useState<FundPhase>("form");
-  const [fundError, setFundError] = useState<string | null>(null);
-  const [fundTxHash, setFundTxHash] = useState<string | null>(null);
-
-  const closeFundModal = () => {
-    if (fundPhase === "submitting" || fundPhase === "pending") return;
-    setFundModalOpen(false);
-    setFundAmount("");
-    setFundPhase("form");
-    setFundError(null);
-    setFundTxHash(null);
-  };
-
-  const handleFundSubmit = async () => {
-    if (!address || !projectId) return;
-    const amountNum = parseFloat(fundAmount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      setFundError("Enter a valid GEN amount.");
-      return;
-    }
-    setFundPhase("submitting");
-    setFundError(null);
-
-    try {
-      const [wholePart, fracPart = ""] = fundAmount.split(".");
-      const fracPadded = fracPart.slice(0, 18).padEnd(18, "0");
-      const weiAmount = BigInt(wholePart || "0") * 1_000_000_000_000_000_000n + BigInt(fracPadded);
-
-      const glClient = createClient({ chain: glTestnetBradbury, account: address });
-      const hash = await glClient.writeContract({
-        address: GENATIO_CONTRACT as Address,
-        functionName: "fund_project",
-        args: [projectId],
-        value: weiAmount,
-      });
-
-      const hashStr = String(hash);
-      setFundTxHash(hashStr);
-      setFundPhase("pending");
-
-      await (glClient as any).waitForTransactionReceipt({
-        hash: hashStr,
-        status: "ACCEPTED",
-        pollingInterval: 5000,
-      });
-
-      setFundPhase("success");
-    } catch (err: unknown) {
-      const errMsg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-      if (errMsg.includes("user rejected") || errMsg.includes("rejected the request")) {
-        setFundError("Transaction cancelled.");
-      } else if (errMsg.includes("insufficient funds") || errMsg.includes("insufficient balance")) {
-        setFundError("Insufficient GEN balance.");
-      } else if (errMsg.includes("failed to fetch") || errMsg.includes("network error")) {
-        setFundError("Unable to connect. Check your internet connection.");
-      } else {
-        setFundError("Something went wrong. Please try again.");
-      }
-      setFundPhase("form");
-    }
-  };
 
   // ── Funders (staggered) ──────────────────────────────────────────────────
   const [fundersId, setFundersId] = useState<string | null>(null);
@@ -971,35 +907,25 @@ export default function ProjectDetailPage() {
                     )}
                   </div>
 
-                  {(() => {
-                    const isActive = (project?.status ?? "").toLowerCase() === "active";
-                    const canFund = isConnected && isActive && !isOwnProject;
-                    return (
-                      <button
-                        disabled={!canFund}
-                        onClick={() => { if (canFund) setFundModalOpen(true); }}
-                        style={{
-                          fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                          fontSize: "0.9375rem",
-                          fontWeight: 600,
-                          color: canFund ? "var(--color-background)" : "var(--color-text-muted)",
-                          backgroundColor: canFund ? "var(--color-accent-blue)" : "var(--color-elevated)",
-                          border: canFund ? "none" : "1px solid var(--color-border-subtle)",
-                          borderRadius: "10px",
-                          padding: "0.875rem 1rem",
-                          cursor: canFund ? "pointer" : "not-allowed",
-                          width: "100%",
-                          letterSpacing: "-0.01em",
-                          opacity: canFund ? 1 : 0.5,
-                          transition: "opacity 0.2s ease",
-                        }}
-                        onMouseEnter={(e) => { if (canFund) e.currentTarget.style.opacity = "0.85"; }}
-                        onMouseLeave={(e) => { if (canFund) e.currentTarget.style.opacity = "1"; }}
-                      >
-                        Fund Project
-                      </button>
-                    );
-                  })()}
+                  <button
+                    disabled
+                    style={{
+                      fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                      fontSize: "0.9375rem",
+                      fontWeight: 600,
+                      color: "var(--color-text-muted)",
+                      backgroundColor: "var(--color-elevated)",
+                      border: "1px solid var(--color-border-subtle)",
+                      borderRadius: "10px",
+                      padding: "0.875rem 1rem",
+                      cursor: "not-allowed",
+                      width: "100%",
+                      letterSpacing: "-0.01em",
+                      opacity: 0.5,
+                    }}
+                  >
+                    GEN Transfers Coming Soon
+                  </button>
                 </div>
 
                 {/* Verification Card */}
@@ -1538,259 +1464,6 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* ── Fund Modal ──────────────────────────────────────────────────────── */}
-      {fundModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "1.5rem",
-            backgroundColor: "rgba(var(--color-background-rgb), 0.8)",
-            backdropFilter: "blur(4px)",
-            WebkitBackdropFilter: "blur(4px)",
-          }}
-          onClick={(e) => { if (e.target === e.currentTarget) closeFundModal(); }}
-        >
-          <div
-            style={{
-              ...cardStyle,
-              width: "100%",
-              maxWidth: "420px",
-              position: "relative",
-              border: "1px solid var(--color-border-subtle)",
-            }}
-          >
-            {fundPhase !== "submitting" && fundPhase !== "pending" && (
-              <button
-                onClick={closeFundModal}
-                style={{
-                  position: "absolute",
-                  top: "1rem",
-                  right: "1rem",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "0.25rem",
-                  color: "var(--color-text-muted)",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                <X size={18} />
-              </button>
-            )}
-
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.25rem", paddingRight: "2rem" }}>
-              <h2
-                style={{
-                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                  fontSize: "1.0625rem",
-                  fontWeight: 700,
-                  color: "var(--color-text-primary)",
-                  margin: 0,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                Fund {project?.title}
-              </h2>
-            </div>
-
-            {/* FORM */}
-            {fundPhase === "form" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-                      fontSize: "0.6875rem",
-                      fontWeight: 700,
-                      color: "var(--color-text-secondary)",
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      marginBottom: "0.5rem",
-                    }}
-                  >
-                    Amount (GEN)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={fundAmount}
-                    onChange={(e) => { setFundAmount(e.target.value); setFundError(null); }}
-                    placeholder="0.00"
-                    autoFocus
-                    style={{
-                      width: "100%",
-                      boxSizing: "border-box",
-                      padding: "0.75rem 1rem",
-                      backgroundColor: "var(--color-elevated)",
-                      border: `1px solid ${fundError ? "var(--color-danger)" : "var(--color-border-subtle)"}`,
-                      borderRadius: "8px",
-                      color: "var(--color-text-primary)",
-                      fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-                      fontSize: "1.125rem",
-                      outline: "none",
-                    }}
-                  />
-                  {fundError && (
-                    <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-danger)", margin: "0.375rem 0 0" }}>
-                      {fundError}
-                    </p>
-                  )}
-                </div>
-
-                <div
-                  style={{
-                    padding: "0.75rem 0.875rem",
-                    backgroundColor: "color-mix(in srgb, var(--color-accent-blue) 6%, transparent)",
-                    border: "1px solid color-mix(in srgb, var(--color-accent-blue) 18%, transparent)",
-                    borderRadius: "8px",
-                  }}
-                >
-                  <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.55 }}>
-                    GEN will arrive in the creator&apos;s wallet after finalization (20–30 minutes).
-                  </p>
-                </div>
-
-                <div style={{ display: "flex", gap: "0.75rem" }}>
-                  <button
-                    onClick={closeFundModal}
-                    style={{
-                      flex: 1,
-                      fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                      fontSize: "0.875rem",
-                      fontWeight: 500,
-                      color: "var(--color-text-secondary)",
-                      backgroundColor: "transparent",
-                      border: "1px solid var(--color-border-subtle)",
-                      borderRadius: "8px",
-                      padding: "0.625rem 1rem",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleFundSubmit}
-                    disabled={!fundAmount || parseFloat(fundAmount) <= 0}
-                    style={{
-                      flex: 2,
-                      fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                      fontSize: "0.875rem",
-                      fontWeight: 600,
-                      color: "var(--color-background)",
-                      backgroundColor: "var(--color-accent-blue)",
-                      border: "none",
-                      borderRadius: "8px",
-                      padding: "0.625rem 1rem",
-                      cursor: (!fundAmount || parseFloat(fundAmount) <= 0) ? "not-allowed" : "pointer",
-                      opacity: (!fundAmount || parseFloat(fundAmount) <= 0) ? 0.5 : 1,
-                      transition: "opacity 0.2s ease",
-                    }}
-                  >
-                    Send GEN
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* SUBMITTING */}
-            {fundPhase === "submitting" && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "1.5rem 0", textAlign: "center" }}>
-                <Loader2 size={28} color="var(--color-accent-blue)" style={{ animation: "spin 1s linear infinite" }} />
-                <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-text-primary)", margin: 0 }}>
-                  Confirm in your wallet
-                </p>
-                <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6 }}>
-                  Approve the transaction to send{" "}
-                  <span style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", color: "var(--color-text-primary)" }}>
-                    {fundAmount} GEN
-                  </span>
-                </p>
-              </div>
-            )}
-
-            {/* PENDING */}
-            {fundPhase === "pending" && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "1.5rem 0", textAlign: "center" }}>
-                <Loader2 size={28} color="var(--color-accent-blue)" style={{ animation: "spin 1s linear infinite" }} />
-                <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-text-primary)", margin: 0 }}>
-                  Waiting for confirmation...
-                </p>
-                {fundTxHash && (
-                  <span
-                    style={{
-                      fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-                      fontSize: "0.75rem",
-                      color: "var(--color-text-muted)",
-                      backgroundColor: "var(--color-elevated)",
-                      border: "1px solid var(--color-border-subtle)",
-                      borderRadius: "6px",
-                      padding: "0.25rem 0.625rem",
-                    }}
-                  >
-                    {fundTxHash.slice(0, 10)}…{fundTxHash.slice(-8)}
-                  </span>
-                )}
-                <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6 }}>
-                  GenLayer validators are reaching consensus. This may take 2–5 minutes.
-                </p>
-              </div>
-            )}
-
-            {/* SUCCESS */}
-            {fundPhase === "success" && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1.25rem", padding: "1rem 0", textAlign: "center" }}>
-                <div
-                  style={{
-                    width: "52px",
-                    height: "52px",
-                    borderRadius: "50%",
-                    backgroundColor: "color-mix(in srgb, var(--color-success) 10%, transparent)",
-                    border: "1px solid color-mix(in srgb, var(--color-success) 30%, transparent)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <CheckCircle size={24} color="var(--color-success)" />
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-                  <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "1rem", fontWeight: 700, color: "var(--color-success)", margin: 0 }}>
-                    {fundAmount} GEN sent!
-                  </p>
-                  <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6, maxWidth: "320px" }}>
-                    Your GEN has been sent. It will arrive in the creator&apos;s wallet after finalization (20–30 minutes).
-                  </p>
-                </div>
-                <button
-                  onClick={closeFundModal}
-                  style={{
-                    fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                    fontSize: "0.875rem",
-                    fontWeight: 600,
-                    color: "var(--color-text-primary)",
-                    backgroundColor: "var(--color-elevated)",
-                    border: "1px solid var(--color-border-subtle)",
-                    borderRadius: "8px",
-                    padding: "0.625rem 1.5rem",
-                    cursor: "pointer",
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </>
   );
 }
