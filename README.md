@@ -2,7 +2,7 @@
 
 > Trustless open source grants powered by GenLayer Intelligent Contracts.
 
-**Live Demo:** https://www.genatio.xyz
+**Live Demo:** https://genatio.xyz
 
 ---
 
