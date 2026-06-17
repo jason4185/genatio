@@ -6,7 +6,7 @@ import { GENATIO_CONTRACT } from "@/lib/genatio";
 const client = createClient({ chain: testnetBradbury });
 
 const cache = new Map<string, { data: unknown; timestamp: number }>();
-const TTL = 8_000;
+const TTL = 25_000;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

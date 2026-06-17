@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from 'genlayer-js'
 import { testnetBradbury } from 'genlayer-js/chains'
-import { GENATIO_CONTRACT } from '@/lib/config'
+import { GENATIO_CONTRACT } from '@/lib/genatio'
 
 const client = createClient({ chain: testnetBradbury })
 const cache = new Map<string, { data: unknown; timestamp: number }>()

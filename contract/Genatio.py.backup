@@ -16,7 +16,6 @@ class Genatio(gl.Contract):
     blacklist: DynArray[str]
     dispute_contract: str
     owner: str
-    rejected: TreeMap[str, str]
 
     def __init__(self):
         self.dispute_contract = ""
@@ -38,22 +37,6 @@ class Genatio(gl.Contract):
         if duration_days != u256(7) and duration_days != u256(14) and duration_days != u256(30):
             return json.dumps({"status": "rejected", "reason": "Invalid duration. Choose 7, 14, or 30 days"})
 
-        existing_ids = [int(k) for k in self.campaigns.keys()]
-
-        for k, v in self.campaigns.items():
-            existing = json.loads(v)
-            if existing["title"].lower() == title.lower():
-                return json.dumps({"status": "error", "reason": "Project title already exists. Choose a unique title."})
-
-        for k, v in self.rejected.items():
-            existing = json.loads(v)
-            if existing.get("title", "").lower() == title.lower():
-                return json.dumps({"status": "error", "reason": "Project title already exists. Choose a unique title."})
-
-        active = [json.loads(v) for k, v in self.campaigns.items() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] == "active"]
-        if len(active) >= 2:
-            return json.dumps({"status": "error", "reason": "You already have 2 active projects. Close one before submitting a new project."})
-
         result = self._verify_campaign(
             title,
             story,
@@ -66,29 +49,29 @@ class Genatio(gl.Contract):
         if wallet_address in self.blacklist:
             return json.dumps({"status": "rejected", "reason": "Wallet is blacklisted"})
 
+        active = [json.loads(v) for k, v in self.campaigns.items() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] == "active"]
+        if len(active) >= 2:
+            return json.dumps({"status": "rejected", "reason": "You already have 2 active projects"})
+
+        for k, v in self.campaigns.items():
+            existing = json.loads(v)
+            if existing["title"].lower() == title.lower():
+                return json.dumps({"status": "rejected", "reason": "Project title already exists. Choose a unique title."})
+
         try:
             score = u256(int(result.strip()))
             if score > u256(100):
                 score = u256(100)
-        except Exception:
+        except:
             score = u256(0)
-
-        project_id = str(max(existing_ids) + 1 if existing_ids else 1)
 
         if u256(score) >= u256(40):
             status = "active"
         else:
-            rejected_project = {
-                "id": project_id,
-                "title": title,
-                "wallet": wallet_address,
-                "score": str(score),
-                "status": "rejected",
-                "reason": "Your project did not meet the minimum verification threshold of 40 points required for listing on Genatio.",
-                "created_at": gl.message_raw['datetime']
-            }
-            self.rejected[project_id] = json.dumps(rejected_project)
             return json.dumps({"status": "rejected", "score": str(score)})
+
+        existing_ids = [int(k) for k in self.campaigns.keys()]
+        project_id = str(max(existing_ids) + 1 if existing_ids else 1)
 
         project = {
             "id": project_id,
@@ -130,9 +113,7 @@ class Genatio(gl.Contract):
         sender = gl.message.sender_address
 
         # Forward GEN directly to creator wallet
-        if self.balance < amount:
-            return json.dumps({"status": "error", "reason": "Insufficient contract balance"})
-        _EOARecipient(Address(project["wallet"])).emit_transfer(value=amount)
+        _EOARecipient(Address(project["wallet"])).emit_transfer(value=u256(amount), on='finalized')
 
         # Record donation
         project["raised_gen"] = str(u256(project.get("raised_gen", "0")) + u256(amount))
@@ -215,15 +196,6 @@ class Genatio(gl.Contract):
         return json.dumps(projects)
 
     @gl.public.view
-    def get_rejected_projects(self, wallet: str) -> str:
-        results = []
-        for key, value in self.rejected.items():
-            project = json.loads(value)
-            if project["wallet"].lower() == wallet.lower():
-                results.append(project)
-        return json.dumps(results)
-
-    @gl.public.view
     def get_project(self, project_id: str) -> str:
         return json.dumps(json.loads(self.campaigns[project_id])) if project_id in self.campaigns else json.dumps(None)
 
@@ -280,8 +252,7 @@ class Genatio(gl.Contract):
                 except:
                     live_data = ""
 
-            try:
-                analysis = gl.nondet.exec_prompt(
+            analysis = gl.nondet.exec_prompt(
                 f"""You are verifying an open source project grant application on Genatio.
 Today's date: {gl.message_raw['datetime'][:10]}
 
@@ -381,10 +352,10 @@ Reply with a JSON object only, no other text:
 }}""",
                 response_format="json"
             )
+            try:
                 score_raw = analysis.get("score", 0)
-                score_int = max(0, min(100, int(round(float(str(score_raw).strip())))))
-                return str(score_int)
-            except Exception:
+                return str(max(0, min(100, int(round(float(str(score_raw).strip()))))))
+            except:
                 return "0"
 
         def validator_fn(leaders_res):

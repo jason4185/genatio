@@ -5,7 +5,7 @@ import { GENATIO_CONTRACT, DISPUTE_CONTRACT } from "@/lib/genatio";
 
 const client = createClient({ chain: testnetBradbury });
 const cache = new Map<string, { data: unknown; timestamp: number }>();
-const TTL = 8_000;
+const TTL = 25_000;
 
 interface ContractFlag {
   id: string;

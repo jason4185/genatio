@@ -7,6 +7,7 @@ class GenatioDispute(gl.Contract):
     disputes: str
     blacklist: str
     main_contract: str
+    dispute_history: TreeMap[str, str]
 
     def __init__(self, main_contract_address: str):
         self.disputes = json.dumps([])
@@ -31,6 +32,7 @@ class GenatioDispute(gl.Contract):
 
         # Check no flag already exists for this project
         disputes = json.loads(self.disputes)
+        blacklist_raw = self.blacklist
         existing = [d for d in disputes if d["project_id"] == project_id]
         if existing:
             return json.dumps({"status": "error", "reason": "Flag already raised for this project"})
@@ -40,11 +42,8 @@ class GenatioDispute(gl.Contract):
 
         # Extract project details for AI
         project_title = project["title"]
-        project_story = project["story"]
-        project_github = project["github_repo_url"]
+        project_github = project.get("github_repo_url", "")
         project_funding_purpose = project["funding_purpose"]
-
-        # Parse GitHub URL
         parts = project_github.rstrip('/').split('/')
         owner = parts[-2] if len(parts) >= 2 else ""
         repo = parts[-1].replace(".git", "") if len(parts) >= 1 else ""
@@ -57,6 +56,7 @@ class GenatioDispute(gl.Contract):
                 github_data = repo_response.body.decode("utf-8")
             except:
                 github_data = "No data available"
+
             try:
                 commits_response = gl.nondet.web.get(github_commits_url)
                 commits_data = commits_response.body.decode("utf-8")
@@ -64,48 +64,46 @@ class GenatioDispute(gl.Contract):
                 commits_data = "No data available"
 
             try:
-                result = gl.nondet.exec_prompt(
-                    f"""You are a fair and balanced reviewer investigating a community flag on Genatio.
+                result = gl.nondet.exec_prompt(f"""
+        You are evaluating a community flag against an open source project on Genatio.
 
-PROJECT DETAILS:
-Title: {project_title}
-Story: {project_story}
-Funding purpose: {project_funding_purpose}
-GitHub: {project_github}
+        PROJECT DETAILS:
+        Title: {project_title}
+        Story: {project.get('story', '')}
+        GitHub: {project_github}
+        Funding purpose: {project.get('funding_purpose', '')}
 
-GITHUB EVIDENCE:
-{github_data}
-{commits_data}
+        GITHUB EVIDENCE:
+        {github_data}
 
-FLAG REASONS RAISED:
-{flag_reasons}
+        COMMIT HISTORY:
+        {commits_data}
 
-REVIEW GUIDELINES:
-- You must find CLEAR and UNDENIABLE evidence of fraud or deception to return VALID
-- Missing repo description, low stars, no license, small commit history = NOT fraud
-- A real project with any activity should be treated as legitimate
-- Only return VALID if the repo does not exist, story is completely fabricated, or there are deliberate lies
-- When in doubt — always return INVALID
-- Incomplete projects are NOT fraudulent projects
+        FLAG REASONS:
+        {flag_reasons}
 
-If there is clear undeniable evidence of fraud: reply VALID - brief reason
-If project appears real even if incomplete: reply INVALID - brief reason"""
-                )
-                result_str = str(result).strip() if result else ""
-                if not result_str:
-                    return "INVALID - Unable to evaluate"
-                upper = result_str.upper()
-                if "VALID" not in upper and "INVALID" not in upper:
-                    return "INVALID - Inconclusive evaluation"
-                return result_str
+        GUIDELINES:
+        - Only confirm flag if there is CLEAR and UNDENIABLE evidence of fraud
+        - Missing description, low stars, no license = NOT fraud
+        - Real project with any activity = flag is invalid
+        - When in doubt = 0
+
+        Reply with ONLY a single digit:
+        1 if flag is valid and project is fraudulent
+        0 if flag is invalid and project is legitimate
+        Nothing else. Just 0 or 1.
+        """)
+
+                clean = str(result).strip()
+                return "1" if "1" in clean else "0"
             except:
-                return "INVALID - Unable to evaluate due to error"
+                return "0"
 
         def flag_validator_fn(leaders_res):
             if not isinstance(leaders_res, gl.vm.Return):
                 return False
-            result = leaders_res.calldata.strip().upper()
-            return "VALID" in result or "INVALID" in result
+            result = leaders_res.calldata.strip()
+            return result in ["0", "1"]
 
         resolution = gl.vm.run_nondet_unsafe(resolve, flag_validator_fn)
 
@@ -123,23 +121,61 @@ If project appears real even if incomplete: reply INVALID - brief reason"""
         disputes.append(dispute)
         self.disputes = json.dumps(disputes)
 
+        if resolution is None:
+            resolution = "0"
+
+        resolution = resolution.strip()
+
+        if resolution == "1":
+            resolution_text = "VALID"
+            resolution_reason = "Flag confirmed. Project has been removed from Genatio."
+        else:
+            resolution_text = "INVALID"
+            resolution_reason = "Flag dismissed. Project appears legitimate."
+
+        dispute_record = {
+            "project_id": project_id,
+            "project_title": project_title,
+            "flagged_by": str(gl.message.sender_address),
+            "reasons": flag_reasons,
+            "resolution": resolution_text,
+            "reason": resolution_reason,
+            "timestamp": gl.message_raw['datetime']
+        }
+        self.dispute_history[project_id] = json.dumps(dispute_record)
+
         # Act on resolution
-        if resolution.strip().upper().startswith("VALID"):
-            blacklist = json.loads(self.blacklist)
+        if resolution == "1":
+            blacklist = json.loads(blacklist_raw)
             if project["wallet"] not in blacklist:
                 blacklist.append(project["wallet"])
                 self.blacklist = json.dumps(blacklist)
-            main_contract = gl.get_contract_at(Address(self.main_contract))
-            main_contract.emit(on="accepted").reject_project(project_id)
-            return json.dumps({"status": "success", "resolution": "VALID", "reason": resolution})
-        else:
-            return json.dumps({"status": "success", "resolution": "INVALID", "reason": resolution})
+            main.emit(on="accepted").reject_project(project_id)
+        return json.dumps({
+            "status": "success",
+            "resolution": resolution_text,
+            "reason": resolution_reason
+        })
 
     @gl.public.view
     def get_flags(self, project_id: str) -> str:
         disputes = json.loads(self.disputes)
         result = [d for d in disputes if d["project_id"] == project_id]
         return json.dumps(result[0] if result else None)
+
+    @gl.public.view
+    def get_dispute_history(self, project_id: str) -> str:
+        record = self.dispute_history.get(project_id, "null")
+        return record
+
+    @gl.public.view
+    def get_my_flags(self, wallet: str) -> str:
+        results = []
+        for key, value in self.dispute_history.items():
+            record = json.loads(value)
+            if record["flagged_by"].lower() == wallet.lower():
+                results.append(record)
+        return json.dumps(results)
 
     @gl.public.view
     def get_blacklist(self) -> str:

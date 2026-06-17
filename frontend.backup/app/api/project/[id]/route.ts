@@ -6,12 +6,14 @@ import { GENATIO_CONTRACT } from "@/lib/genatio";
 const client = createClient({ chain: testnetBradbury });
 
 const cache = new Map<string, { data: unknown; timestamp: number }>();
-const TTL = 8_000;
+const TTL = 25_000;
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const status = searchParams.get("status") ?? "";
-  const cacheKey = `projects:${status}`;
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const cacheKey = `project:${id}`;
   const now = Date.now();
 
   const hit = cache.get(cacheKey);
@@ -23,19 +25,23 @@ export async function GET(request: Request) {
 
   const result = await client.readContract({
     address: GENATIO_CONTRACT as `0x${string}`,
-    functionName: "get_projects",
-    args: [status],
+    functionName: "get_project",
+    args: [id],
   });
+
+  if (!result) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
 
   let data: unknown;
   if (typeof result === "string") {
     try {
       data = JSON.parse(result);
     } catch {
-      data = [];
+      return NextResponse.json({ error: "Failed to parse project data" }, { status: 500 });
     }
   } else {
-    data = result ?? [];
+    data = result;
   }
 
   cache.set(cacheKey, { data, timestamp: now });
