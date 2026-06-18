@@ -83,13 +83,23 @@ genatio/
 - `gl.nondet.web.render()` — Live URL verification
 - `gl.nondet.exec_prompt()` — AI project scoring and flag evaluation
 - `gl.vm.run_nondet_unsafe()` — Custom validator for consensus
-- `gl.message.sender_address` — Wallet identity
-- `gl.message.value` — GEN donations
+- `gl.vm.Return` — Validator type check in validator_fn
+- `gl.message.sender_address` — Wallet identity on every write method
+- `gl.message.value` — GEN donation amount
 - `gl.message_raw['datetime']` — On-chain timestamps
+- `@gl.public.view` — All read methods
+- `@gl.public.write` — All write methods
 - `@gl.public.write.payable` — Payable fund method
-- `@gl.evm.contract_interface` — EOA GEN transfer
+- `@gl.evm.contract_interface` — EOA GEN transfer wrapper
+- `emit_transfer()` — Send GEN directly to creator wallet
 - `gl.get_contract_at().view()` — Cross-contract reads
 - `gl.get_contract_at().emit()` — Cross-contract writes
+- `Address()` — Contract address handling
+- `TreeMap[str, str]` — campaigns and rejected project storage
+- `DynArray[str]` — donations and blacklist storage
+- `u256` — Numeric type for GEN amounts and scores
+
+**Total: 19 GenLayer methods across 8 categories**
 
 ## Status
 
