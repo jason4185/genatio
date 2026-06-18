@@ -1,5 +1,5 @@
 # Genatio
-Trustless open source grants on GenLayer Bradbury.
+Trustless open source grants app on GenLayer Bradbury.
 
 **Live Demo:** https://genatio.xyz
 
