@@ -345,21 +345,6 @@ export default function SubmitPage() {
         return;
       }
 
-      const rejected = await readClient.readContract({
-        address: GENATIO_CONTRACT as Address,
-        functionName: "get_rejected_projects",
-        args: [address],
-      });
-      const rejectedList = JSON.parse(rejected as string) as { title: string }[];
-      const titleTaken = rejectedList.some(
-        (p) => p.title.toLowerCase() === form.title.toLowerCase()
-      );
-      if (titleTaken) {
-        setSubmitting(false);
-        setSubmitError("Project name already exists. Please choose a unique name.");
-        return;
-      }
-
       const projectsRaw = await readClient.readContract({
         address: GENATIO_CONTRACT as Address,
         functionName: "get_projects",

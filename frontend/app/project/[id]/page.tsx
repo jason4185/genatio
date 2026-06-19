@@ -6,10 +6,12 @@ import {
   ArrowLeft, GitFork, ExternalLink, Shield, Flag,
   Loader2, X, CheckCircle, XCircle,
 } from "lucide-react";
-import { useAccount, useSendTransaction } from "wagmi";
+import { useAccount, useChainId, useSendTransaction, useSwitchChain } from "wagmi";
+import { waitForTransactionReceipt } from "wagmi/actions";
 import { createClient } from "genlayer-js";
 import { testnetBradbury as glTestnetBradbury } from "genlayer-js/chains";
 import { parseEther } from "viem";
+import { config } from "@/lib/wagmi";
 import type { Address } from "viem";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
@@ -313,14 +315,16 @@ export default function ProjectDetailPage() {
   // Fund modal state
   const [fundModalOpen, setFundModalOpen] = useState(false);
   const [fundAmount, setFundAmount] = useState("");
-  const [fundPhase, setFundPhase] = useState<"form" | "submitting" | "success">("form");
+  const [fundPhase, setFundPhase] = useState<"form" | "submitting" | "pending" | "success">("form");
   const [fundError, setFundError] = useState<string | null>(null);
   const [fundTxHash, setFundTxHash] = useState<string | null>(null);
 
+  const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
   const { sendTransactionAsync } = useSendTransaction();
 
   const closeFundModal = () => {
-    if (fundPhase === "submitting") return;
+    if (fundPhase === "submitting" || fundPhase === "pending") return;
     setFundModalOpen(false);
     setFundAmount("");
     setFundPhase("form");
@@ -332,14 +336,41 @@ export default function ProjectDetailPage() {
     if (!address || !project?.wallet || !fundAmount || Number(fundAmount) <= 0) return;
     setFundPhase("submitting");
     setFundError(null);
+
+    console.log('Current chainId:', chainId);
+    console.log('Target chainId:', 4221);
+
+    // FIX 1: ensure correct network before sending
+    if (chainId !== 4221) {
+      try {
+        await switchChainAsync({ chainId: 4221 });
+        console.log('Chain switch result, new chainId:', chainId);
+      } catch {
+        setFundError("Please switch to GenLayer Bradbury network in your wallet.");
+        setFundPhase("form");
+        return;
+      }
+    }
+
+    console.log('Sending transaction:', {
+      to: project.wallet,
+      value: fundAmount,
+      chainId: 4221,
+    });
+
+    let hash: string;
     try {
-      const hash = await sendTransactionAsync({
+      const result = await sendTransactionAsync({
         to: project.wallet as `0x${string}`,
         value: parseEther(fundAmount),
+        chainId: 4221,
       });
-      setFundTxHash(String(hash));
-      setFundPhase("success");
+      hash = String(result);
+      console.log('Transaction hash returned:', hash);
+      console.log('Hash type:', typeof hash);
     } catch (err: unknown) {
+      console.error('Full error object:', err);
+      console.error('Error message:', err instanceof Error ? err.message : String(err));
       const errMsg = (err instanceof Error ? err.message : String(err)).toLowerCase();
       if (errMsg.includes("user rejected") || errMsg.includes("rejected the request")) {
         setFundError("Transaction cancelled.");
@@ -348,6 +379,34 @@ export default function ProjectDetailPage() {
       } else {
         setFundError("Transaction failed. Please try again.");
       }
+      setFundPhase("form");
+      return;
+    }
+
+    // FIX 2: wait for on-chain confirmation before showing success
+    setFundTxHash(hash);
+    setFundPhase("pending");
+
+    console.log('Waiting for receipt on chainId:', 4221);
+
+    try {
+      const receipt = await waitForTransactionReceipt(config, {
+        hash: hash as `0x${string}`,
+        chainId: 4221,
+        timeout: 60_000,
+        pollingInterval: 3_000,
+      });
+
+      if (receipt.status === "success") {
+        setFundPhase("success");
+      } else {
+        setFundError("Transaction failed on-chain. Please try again.");
+        setFundPhase("form");
+      }
+    } catch (err: unknown) {
+      console.error('Full error object:', err);
+      console.error('Error message:', err instanceof Error ? err.message : String(err));
+      setFundError("Could not confirm transaction. Check the explorer with your transaction hash.");
       setFundPhase("form");
     }
   };
@@ -1002,7 +1061,7 @@ export default function ProjectDetailPage() {
               border: "1px solid var(--color-border-subtle)",
             }}
           >
-            {fundPhase !== "submitting" && (
+            {fundPhase !== "submitting" && fundPhase !== "pending" && (
               <button
                 onClick={closeFundModal}
                 style={{
@@ -1045,6 +1104,38 @@ export default function ProjectDetailPage() {
                 </p>
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6 }}>
                   Sending GEN directly to creator&apos;s wallet...
+                </p>
+              </div>
+            )}
+
+            {/* Pending — waiting for on-chain confirmation */}
+            {fundPhase === "pending" && (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "1.5rem 0", textAlign: "center" }}>
+                <Loader2 size={28} color="var(--color-accent-blue)" style={{ animation: "spin 1s linear infinite" }} />
+                <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-text-primary)", margin: 0 }}>
+                  Confirming transaction...
+                </p>
+                {fundTxHash && (
+                  <a
+                    href={`https://explorer-bradbury.genlayer.com/tx/${fundTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+                      fontSize: "0.75rem",
+                      color: "var(--color-accent-blue)",
+                      textDecoration: "none",
+                      backgroundColor: "var(--color-elevated)",
+                      border: "1px solid var(--color-border-subtle)",
+                      borderRadius: "6px",
+                      padding: "0.25rem 0.625rem",
+                    }}
+                  >
+                    {truncateHash(fundTxHash)} ↗
+                  </a>
+                )}
+                <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-muted)", margin: 0, lineHeight: 1.6 }}>
+                  Waiting for the transaction to be included on-chain...
                 </p>
               </div>
             )}

@@ -107,9 +107,11 @@ function SkeletonRow({ isLast }: { isLast: boolean }) {
 
 export function LiveStatsCard({
   totalProjects,
+  recentlyVerified,
   loading,
 }: {
   totalProjects: number;
+  recentlyVerified?: number;
   loading: boolean;
 }) {
   return (
@@ -181,15 +183,27 @@ export function LiveStatsCard({
         </div>
 
         {loading ? (
-          <SkeletonRow isLast={true} />
+          <>
+            <SkeletonRow isLast={false} />
+            <SkeletonRow isLast={true} />
+          </>
         ) : (
-          <StatRow
-            key={`projects-${totalProjects}`}
-            base={totalProjects}
-            label="Projects Verified"
-            duration={1500}
-            isLast={true}
-          />
+          <>
+            <StatRow
+              key={`projects-${totalProjects}`}
+              base={totalProjects}
+              label="Projects Verified"
+              duration={1500}
+              isLast={false}
+            />
+            <StatRow
+              key={`recent-${recentlyVerified ?? 0}`}
+              base={recentlyVerified ?? 0}
+              label="Verified Last 7 Days"
+              duration={1200}
+              isLast={true}
+            />
+          </>
         )}
       </div>
     </>

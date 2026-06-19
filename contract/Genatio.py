@@ -37,11 +37,6 @@ class Genatio(gl.Contract):
             if existing["title"].lower() == title.lower():
                 return json.dumps({"status": "error", "reason": "Project title already exists. Choose a unique title."})
 
-        for k, v in self.rejected.items():
-            existing = json.loads(v)
-            if existing.get("title", "").lower() == title.lower():
-                return json.dumps({"status": "error", "reason": "Project title already exists. Choose a unique title."})
-
         active = [json.loads(v) for k, v in self.campaigns.items() if json.loads(v)["wallet"] == wallet_address and json.loads(v)["status"] == "active"]
         if len(active) >= 2:
             return json.dumps({"status": "error", "reason": "You already have 2 active projects. Close one before submitting a new project."})

@@ -294,7 +294,7 @@ function isRecentlyVerified(p: Project): boolean {
 }
 
 const QUOTE_TEXT =
-  "We can't touch your money. We can't approve or reject your project. The Intelligent Contract and the chain decide everything.";
+  "We never hold your funds. We can't approve or reject your project. The Intelligent Contract verifies everything. You send GEN directly to the builder.";
 
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null);
@@ -309,6 +309,8 @@ export default function LandingPage() {
     totalProjects,
     loading: statsLoading,
   } = useStats();
+
+  const recentlyVerifiedCount = activeProjects.filter(isRecentlyVerified).length;
 
   const statPills = [
     { value: statsLoading ? 0 : totalProjects, label: "Projects Verified" },
@@ -588,7 +590,8 @@ export default function LandingPage() {
             >
               <LiveStatsCard
                 totalProjects={totalProjects}
-                loading={statsLoading}
+                recentlyVerified={recentlyVerifiedCount}
+                loading={statsLoading || projectsLoading}
               />
             </motion.div>
           </motion.div>

@@ -1,7 +1,14 @@
 import { createClient } from "genlayer-js";
 import { testnetBradbury as glTestnetBradbury } from "genlayer-js/chains";
 
-export const GENATIO_CONTRACT = "0x544B6dEb105a02f585f0Aa3aef6398B5E9cD5B77";
-export const DISPUTE_CONTRACT = "0x4dE9635b81DbfbC9E590C868d698dAF09f20C46E";
+const IS_TEST = process.env.NEXT_PUBLIC_TEST_MODE === 'true'
+
+export const GENATIO_CONTRACT = IS_TEST
+  ? '0xD666F066dCDb27BFFffCc8869c66b2E6A246F1F0'
+  : '0xD666F066dCDb27BFFffCc8869c66b2E6A246F1F0'
+
+export const DISPUTE_CONTRACT = IS_TEST
+  ? '0x49dbBed1fE59f0c868a71Fc57268b943FddF657d'
+  : '0x49dbBed1fE59f0c868a71Fc57268b943FddF657d'
 
 export const genLayerClient = createClient({ chain: glTestnetBradbury });
