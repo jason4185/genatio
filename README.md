@@ -181,8 +181,9 @@ Open `http://localhost:3000`, connect your wallet, and submit a project with a r
 
 ### MVP 2 — Planned
 - 📱 Mobile responsive design — full support for all screen sizes and touch devices
-- 🏆 Milestone-based fund release — funds released in 30/40/30 splits as a project hits verified milestones
-- 🔍 On-chain donation verification — independently confirm GEN transfers between donor and creator wallets before updating funding stats
+- 🔍 On-chain donation verification — GenLayer independently confirms each claimed GEN transfer via the Bradbury explorer API before updating funding stats, with no contract custody required
+- 📒 Verified funding tracker — a transparent, tamper-proof funding ledger per project built only from independently verified donations
+- ⭐ Builder reputation score — an on-chain reputation badge (NEW / BUILDER / TRUSTED / VERIFIED) derived from a wallet's approval history, rejection patterns, and flag outcomes
 
 ---
 
