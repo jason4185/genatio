@@ -24,20 +24,32 @@ Open source funding today is slow, gatekept, and opaque. Grant committees decide
 
 ## Key Innovation & Technical Pillars
 
-**Trustless Verification, Not Moderation**
-Genatio replaces human grant reviewers with an Intelligent Contract that fetches live GitHub evidence and scores submissions against ten weighted factors, normalized through Optimistic Democracy consensus.
-
 **Custom Validator Consensus**
-Rather than requiring validators to agree on identical AI text, Genatio uses a custom `validator_fn` that independently cross-checks the leader's score against real GitHub data — rejecting implausible scores deterministically while still allowing natural language variation in AI reasoning.
+Instead of requiring all 5 validators to independently re-run expensive web fetches and AI calls, only the leader does the full evaluation. The remaining validators receive the leader's result and run a lightweight `validator_fn` that cross-checks it against minimal independent evidence — keeping consensus fast while staying trustless. A wrong leader result gets rejected.
+
+**Storage Boundary Discipline**
+GenLayer requires all storage reads to happen before a nondet (AI/web) call, and all writes to happen after. Violating this causes a silent GenVM crash — no error, just an empty return value. This was hit multiple times across both contracts (blacklist reads, ID generation, project lookups occurring after nondet calls) and fixed by systematically auditing and reordering every read and write.
+
+**Deterministic Flag Resolution**
+AI naturally produces varied phrasing, which made validators disagree on whether to accept a leader's verdict. This was solved by having the AI return exactly `"0"` or `"1"` — the most deterministic output possible — then mapping that to a VALID/INVALID resolution and human-readable reason afterward in contract logic.
 
 **Direct Peer-to-Peer Funding**
-Genatio does not custody donor funds. GEN moves wallet to wallet, directly from donor to verified builder. The Intelligent Contract's role is strictly limited to verification — never custody.
+GEN no longer flows through the contract. Donors send GEN directly to the verified creator wallet. The contract's role is strictly limited to verification — it never custodies funds, removing EOA-transfer complexity and Bradbury value-transfer dependency entirely.
+
+**Persistent On-Chain Rejection Memory**
+Rejected submissions are stored in a dedicated `rejected` TreeMap with the AI's score and reasoning, visible on the builder's dashboard. Rejected titles can be reused, allowing a builder to fix their GitHub repository and resubmit under the same project name without being permanently blocked.
 
 **On-Chain Dispute Resolution**
-A second Intelligent Contract, GenatioDispute, independently fetches the same GitHub evidence when a project is flagged and reaches its own consensus verdict — VALID or INVALID — fully decoupled from the original verification.
+A second Intelligent Contract, GenatioDispute, independently re-fetches fresh GitHub evidence when a project is flagged and reaches its own consensus verdict — fully decoupled from the original verification, so a project cannot hide behind a stale approval.
 
-**Persistent Rejection Memory**
-Rejected submissions are not discarded. They are stored on-chain with the AI's reasoning, visible to the builder on their dashboard, and the same project title can be resubmitted once the underlying issues are fixed.
+**Smart Adaptive Polling**
+The frontend polls every 5 seconds only while a transaction is actively pending, falling back to 30 second background polling everywhere else — keeping the UI responsive during critical moments without overloading Bradbury's RPC.
+
+**Server-Side Caching Layer**
+Every API route caches Bradbury reads for 8-15 seconds server-side, so frontend polling hits the cache instead of the RPC directly — protecting against rate limits while keeping data fresh within seconds.
+
+**Pre-Flight Validation**
+Before a user signs a transaction, the frontend checks for duplicate titles and active project limits by reading contract state directly. If a submission would fail, the user sees an instant error — no wasted gas, no wasted validator compute on a guaranteed rejection.
 
 ---
 
