@@ -1,9 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { GitFork, Clock } from "lucide-react";
+import { GitFork } from "lucide-react";
 import ScoreRing from "./ScoreRing";
-import FundingProgress from "./FundingProgress";
 
 interface ProjectCardProps {
   projectId: string;
@@ -12,9 +11,6 @@ interface ProjectCardProps {
   description: string;
   score: number;
   status: "ACTIVE" | "active" | "REJECTED" | "rejected" | "PENDING" | "pending" | "DISPUTED" | "disputed" | "ENDED" | "ended" | string;
-  raised: number;
-  goal: number;
-  daysLeft: number;
 }
 
 export default function ProjectCard({
@@ -24,9 +20,6 @@ export default function ProjectCard({
   description,
   score,
   status,
-  raised,
-  goal,
-  daysLeft,
 }: ProjectCardProps) {
   const router = useRouter();
   const upper = status.toUpperCase();
@@ -37,11 +30,6 @@ export default function ProjectCard({
     upper === "REJECTED" ? "var(--color-danger)" :
     upper === "DISPUTED" ? "var(--color-warning)" :
     "var(--color-border-subtle)";
-
-  const formatAmount = (n: number) => {
-    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-    return n.toString();
-  };
 
   return (
     <div
@@ -141,78 +129,48 @@ export default function ProjectCard({
           lineHeight: 1.6,
           margin: 0,
           display: "-webkit-box",
-          WebkitLineClamp: 2,
+          WebkitLineClamp: 3,
           WebkitBoxOrient: "vertical",
           overflow: "hidden",
+          flex: 1,
         }}
       >
         {description}
       </p>
 
-      {/* Funding */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-        <FundingProgress raised={raised} goal={goal} />
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span
-            style={{
-              fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-              fontSize: "0.8125rem",
-              color: "var(--color-text-primary)",
-              fontWeight: 600,
-            }}
-          >
-            {formatAmount(raised)} GEN{" "}
-            <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}>
-              / {formatAmount(goal)} GEN
-            </span>
-          </span>
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.25rem",
-              fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-              fontSize: "0.75rem",
-              color: "var(--color-text-secondary)",
-            }}
-          >
-            <Clock size={11} color="var(--color-text-muted)" />
-            {daysLeft}d left
-          </span>
-        </div>
+      {/* Actions */}
+      <div style={{ display: "flex", gap: "0.625rem" }}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/project/${projectId}`);
+          }}
+          style={{
+            flex: 1,
+            fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            color: "var(--color-accent-blue)",
+            backgroundColor: "transparent",
+            border: "1px solid var(--color-accent-blue)",
+            borderRadius: "8px",
+            padding: "0.625rem 1rem",
+            cursor: "pointer",
+            transition: "background-color 0.18s ease, color 0.18s ease",
+            letterSpacing: "-0.01em",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = "var(--color-accent-blue)";
+            e.currentTarget.style.color = "var(--color-text-primary)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "transparent";
+            e.currentTarget.style.color = "var(--color-accent-blue)";
+          }}
+        >
+          Fund Project →
+        </button>
       </div>
-
-      {/* CTA */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          router.push(`/project/${projectId}`);
-        }}
-        style={{
-          fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-          fontSize: "0.875rem",
-          fontWeight: 600,
-          color: "var(--color-accent-blue)",
-          backgroundColor: "transparent",
-          border: "1px solid var(--color-accent-blue)",
-          borderRadius: "8px",
-          padding: "0.625rem 1rem",
-          cursor: "pointer",
-          transition: "background-color 0.18s ease, color 0.18s ease",
-          width: "100%",
-          letterSpacing: "-0.01em",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = "var(--color-accent-blue)";
-          e.currentTarget.style.color = "var(--color-text-primary)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = "transparent";
-          e.currentTarget.style.color = "var(--color-accent-blue)";
-        }}
-      >
-        Fund Project →
-      </button>
     </div>
   );
 }

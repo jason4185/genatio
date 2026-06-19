@@ -269,10 +269,6 @@ function HiwNode({
   );
 }
 
-function weiToGen(raw: number | string | undefined): number {
-  return Math.round((Number(raw ?? 0) / 1e18) * 100) / 100;
-}
-
 function extractRepo(url: string): string {
   try {
     const parts = url.replace(/\.git$/, "").replace(/\/$/, "").split("/");
@@ -282,18 +278,6 @@ function extractRepo(url: string): string {
   }
 }
 
-function calcDaysLeft(
-  createdAt: string | number,
-  durationDays: string | number
-): number {
-  const start =
-    typeof createdAt === "string"
-      ? new Date(createdAt).getTime()
-      : Number(createdAt) * 1000;
-  const end = start + Number(durationDays) * 86_400_000;
-  return Math.max(0, Math.ceil((end - Date.now()) / 86_400_000));
-}
-
 function toCardProps(p: Project) {
   return {
     name: p.title,
@@ -301,11 +285,12 @@ function toCardProps(p: Project) {
     description: p.story,
     score: Number(p.score),
     status: "ACTIVE" as const,
-    raised: weiToGen(p.raised_gen),
-    goal: weiToGen(p.goal_gen),
-    daysLeft: calcDaysLeft(p.created_at, p.duration_days),
     projectId: String(p.id),
   };
+}
+
+function isRecentlyVerified(p: Project): boolean {
+  return Date.now() - new Date(p.created_at).getTime() < 7 * 24 * 3600 * 1000;
 }
 
 const QUOTE_TEXT =
@@ -322,15 +307,11 @@ export default function LandingPage() {
 
   const {
     totalProjects,
-    totalDonors,
-    totalRaised,
     loading: statsLoading,
   } = useStats();
 
   const statPills = [
     { value: statsLoading ? 0 : totalProjects, label: "Projects Verified" },
-    { value: statsLoading ? 0 : totalDonors, label: "Total Donors" },
-    { value: statsLoading ? 0 : Math.round(totalRaised), label: "GEN Total Raised" },
   ];
 
 
@@ -607,8 +588,6 @@ export default function LandingPage() {
             >
               <LiveStatsCard
                 totalProjects={totalProjects}
-                totalDonors={totalDonors}
-                totalRaised={totalRaised}
                 loading={statsLoading}
               />
             </motion.div>
@@ -735,7 +714,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── ACTIVE PROJECTS ─────────────────────────────────── */}
+        {/* ── PROJECTS ────────────────────────────────────────── */}
         <section
           id="projects"
           style={{
@@ -781,7 +760,7 @@ export default function LandingPage() {
                 lineHeight: 1.1,
               }}
             >
-              Active Projects
+              {projectsLoading ? "Projects Verified" : `${activeProjects.length} Projects Verified`}
             </motion.h2>
             <motion.p
               variants={fadeUp}
@@ -798,68 +777,118 @@ export default function LandingPage() {
             </motion.p>
           </SectionReveal>
 
-          <div>
-            {projectsLoading ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "3rem 0",
-                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                  fontSize: "0.9375rem",
-                  color: "var(--color-text-muted)",
-                }}
-              >
-                Loading projects…
+          {/* Recently Verified */}
+          {(() => {
+            const recent = activeProjects.filter(isRecentlyVerified).slice(0, 3);
+            return (
+              <div style={{ marginBottom: "4rem" }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "0.75rem", marginBottom: "1.5rem" }}>
+                  <h3
+                    style={{
+                      fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                      fontSize: "1.25rem",
+                      fontWeight: 700,
+                      color: "var(--color-text-primary)",
+                      letterSpacing: "-0.02em",
+                      margin: 0,
+                    }}
+                  >
+                    Recently Verified
+                  </h3>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                      fontSize: "0.875rem",
+                      color: "var(--color-text-muted)",
+                    }}
+                  >
+                    Last 7 days
+                  </span>
+                </div>
+                {projectsLoading ? (
+                  <div style={{ textAlign: "center", padding: "2rem 0", fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", color: "var(--color-text-muted)" }}>
+                    Loading…
+                  </div>
+                ) : recent.length === 0 ? (
+                  <div style={{ padding: "2rem 1.5rem", fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", color: "var(--color-text-muted)", border: "1px dashed var(--color-border-subtle)", borderRadius: "12px", textAlign: "center" }}>
+                    No projects verified in the last 7 days.
+                  </div>
+                ) : (
+                  <div className="projects-grid">
+                    {recent.map((project, index) => (
+                      <motion.div
+                        key={project.id}
+                        initial="hidden"
+                        whileInView="visible"
+                        viewport={{ once: true, margin: "-60px" }}
+                        variants={fadeUp}
+                        transition={{ duration: 0.5, delay: index * 0.1 }}
+                      >
+                        <ProjectCard {...toCardProps(project)} />
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </div>
-            ) : activeProjects.length === 0 ? (
-              <motion.div
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-                variants={fadeUp}
-                transition={{ duration: 0.5 }}
-                style={{
-                  textAlign: "center",
-                  padding: "4rem 1.5rem",
-                  fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                  fontSize: "1rem",
-                  color: "var(--color-text-muted)",
-                  border: "1px dashed var(--color-border-subtle)",
-                  borderRadius: "12px",
-                }}
-              >
-                No active projects yet. Be the first to{" "}
-                <a
-                  href="/submit"
-                  style={{
-                    color: "var(--color-accent-blue)",
-                    textDecoration: "underline",
-                  }}
-                >
-                  submit
-                </a>
-                .
-              </motion.div>
-            ) : (
-              <div className="projects-grid">
-                {activeProjects.map((project, index) => {
-                  const card = toCardProps(project);
-                  return (
-                    <motion.div
-                      key={card.projectId}
-                      initial="hidden"
-                      whileInView="visible"
-                      viewport={{ once: true, margin: "-60px" }}
-                      variants={fadeUp}
-                      transition={{ duration: 0.5, delay: Math.min(index, 5) * 0.1 }}
-                    >
-                      <ProjectCard {...card} />
-                    </motion.div>
-                  );
-                })}
+            );
+          })()}
+
+          {/* Top Rated */}
+          {(() => {
+            const topRated = [...activeProjects].sort((a, b) => Number(b.score) - Number(a.score)).slice(0, 3);
+            return (
+              <div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "0.75rem", marginBottom: "1.5rem" }}>
+                  <h3
+                    style={{
+                      fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                      fontSize: "1.25rem",
+                      fontWeight: 700,
+                      color: "var(--color-text-primary)",
+                      letterSpacing: "-0.02em",
+                      margin: 0,
+                    }}
+                  >
+                    Top Rated
+                  </h3>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                      fontSize: "0.875rem",
+                      color: "var(--color-text-muted)",
+                    }}
+                  >
+                    Highest AI verification scores
+                  </span>
+                </div>
+                {projectsLoading ? (
+                  <div style={{ textAlign: "center", padding: "2rem 0", fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", color: "var(--color-text-muted)" }}>
+                    Loading…
+                  </div>
+                ) : topRated.length === 0 ? (
+                  <div style={{ padding: "2rem 1.5rem", fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", color: "var(--color-text-muted)", border: "1px dashed var(--color-border-subtle)", borderRadius: "12px", textAlign: "center" }}>
+                    No active projects yet. Be the first to{" "}
+                    <a href="/submit" style={{ color: "var(--color-accent-blue)", textDecoration: "underline" }}>submit</a>.
+                  </div>
+                ) : (
+                  <div className="projects-grid">
+                    {topRated.map((project, index) => (
+                      <motion.div
+                        key={project.id}
+                        initial="hidden"
+                        whileInView="visible"
+                        viewport={{ once: true, margin: "-60px" }}
+                        variants={fadeUp}
+                        transition={{ duration: 0.5, delay: index * 0.1 }}
+                      >
+                        <ProjectCard {...toCardProps(project)} />
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
           <SectionReveal
             style={{

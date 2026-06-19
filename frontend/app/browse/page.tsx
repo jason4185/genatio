@@ -9,7 +9,7 @@ import type { Project } from "@/hooks/useProjects";
 import { Logo } from "@/components/Logo";
 
 type FilterTab = "all" | "active" | "ending-soon" | "recently-verified" | "ended";
-type SortKey = "recently-added" | "highest-score" | "most-funded" | "ending-soon";
+type SortKey = "recently-added" | "highest-score" | "ending-soon";
 
 const PAGE_SIZE = 9;
 
@@ -24,14 +24,8 @@ const FILTER_TABS: { value: FilterTab; label: string }[] = [
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "recently-added", label: "Recently Added" },
   { value: "highest-score", label: "Highest Score" },
-  { value: "most-funded", label: "Most Funded" },
   { value: "ending-soon", label: "Ending Soon" },
 ];
-
-function weiToGen(raw: number | string | undefined): number {
-  if (raw === undefined || raw === null) return 0;
-  return Number(raw) / 1e18;
-}
 
 function extractRepo(url: string): string {
   try {
@@ -54,8 +48,6 @@ function toCardProps(p: Project) {
     description: p.story,
     score: Number(p.score) || 0,
     status: p.status,
-    raised: weiToGen(p.raised_gen),
-    goal: weiToGen(p.goal_gen),
     daysLeft: computeDaysLeft(p.created_at, p.duration_days),
   };
 }
@@ -87,17 +79,10 @@ function SkeletonCard() {
         />
       </div>
       {/* Description */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem", flex: 1 }}>
         <div className="skeleton-pulse" style={{ height: "13px", width: "100%", borderRadius: "6px" }} />
         <div className="skeleton-pulse" style={{ height: "13px", width: "75%", borderRadius: "6px" }} />
-      </div>
-      {/* Progress */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-        <div className="skeleton-pulse" style={{ height: "3px", width: "100%", borderRadius: "2px" }} />
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <div className="skeleton-pulse" style={{ height: "12px", width: "40%", borderRadius: "6px" }} />
-          <div className="skeleton-pulse" style={{ height: "12px", width: "20%", borderRadius: "6px" }} />
-        </div>
+        <div className="skeleton-pulse" style={{ height: "13px", width: "55%", borderRadius: "6px" }} />
       </div>
       {/* Button */}
       <div className="skeleton-pulse" style={{ height: "38px", width: "100%", borderRadius: "8px" }} />
@@ -118,21 +103,13 @@ export default function BrowsePage() {
   }, []);
   const { projects: endedProjects, loading: endedLoading } = useProjects("ended", endedEnabled);
 
-  // Derive stats from the already-fetched active projects
   const totalProjects = projects.length;
-  const totalDonors = projects.reduce((sum, p) => sum + (Number(p.donor_count) || 0), 0);
-  const totalRaised = projects.reduce((sum, p) => sum + Number(p.raised_gen || 0) / 1e18, 0);
   const statsLoading = loading;
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterTab>("all");
   const [sort, setSort] = useState<SortKey>("recently-added");
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
-
-  const formatRaised = (n: number) => {
-    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-    return n.toFixed(n % 1 === 0 ? 0 : 2);
-  };
 
   const isEndedTab = filter === "ended";
 
@@ -158,9 +135,6 @@ export default function BrowsePage() {
     switch (sort) {
       case "highest-score":
         result.sort((a, b) => b.score - a.score);
-        break;
-      case "most-funded":
-        result.sort((a, b) => b.raised - a.raised);
         break;
       case "ending-soon":
         if (!isEndedTab) result.sort((a, b) => a.daysLeft - b.daysLeft);
@@ -284,38 +258,18 @@ export default function BrowsePage() {
 
           {/* Live stats row */}
           <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", flexWrap: "wrap" }}>
-            {[
-              {
-                value: statsLoading ? "—" : String(totalProjects),
-                label: "Active",
-              },
-              {
-                value: statsLoading ? "—" : `${formatRaised(totalRaised)} GEN`,
-                label: "Raised",
-              },
-              {
-                value: statsLoading ? "—" : String(totalDonors),
-                label: "Donors",
-              },
-            ].map((stat, i, arr) => (
-              <div key={stat.label} style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
-                <span
-                  style={{
-                    fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-                    fontSize: "0.875rem",
-                    color: "var(--color-text-muted)",
-                  }}
-                >
-                  <span style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>
-                    {stat.value}
-                  </span>{" "}
-                  {stat.label}
-                </span>
-                {i < arr.length - 1 && (
-                  <span style={{ color: "var(--color-border-subtle)" }}>|</span>
-                )}
-              </div>
-            ))}
+            <span
+              style={{
+                fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+                fontSize: "0.875rem",
+                color: "var(--color-text-muted)",
+              }}
+            >
+              <span style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>
+                {statsLoading ? "—" : String(totalProjects)}
+              </span>{" "}
+              Active
+            </span>
           </div>
         </section>
 
@@ -609,8 +563,8 @@ export default function BrowsePage() {
               </p>
 
               <div className="browse-grid">
-                {visible.map((props) => (
-                  <ProjectCard key={props.projectId} {...props} />
+                {visible.map(({ daysLeft: _dl, ...cardProps }) => (
+                  <ProjectCard key={cardProps.projectId} {...cardProps} />
                 ))}
               </div>
 

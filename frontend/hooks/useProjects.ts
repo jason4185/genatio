@@ -11,9 +11,7 @@ export interface Project {
   live_url: string;
   score: number;
   status: "ACTIVE" | "DISPUTED" | "ENDED";
-  raised_gen: number | string;
   goal_gen: number | string;
-  donor_count: number;
   funding_purpose?: string;
   created_at: string | number;
   duration_days: string | number;

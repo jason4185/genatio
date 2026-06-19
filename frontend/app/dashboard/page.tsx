@@ -12,7 +12,6 @@ interface Project {
   title: string;
   status: string;
   score: number;
-  raised_gen: number | string;
   goal_gen: number | string;
   created_at: string | number;
   duration_days: string | number;

@@ -3,16 +3,8 @@
 from genlayer import *
 import json
 
-@gl.evm.contract_interface
-class _EOARecipient:
-    class View:
-        pass
-    class Write:
-        pass
-
 class Genatio(gl.Contract):
     campaigns: TreeMap[str, str]
-    donations: DynArray[str]
     blacklist: DynArray[str]
     dispute_contract: str
     owner: str
@@ -97,13 +89,11 @@ class Genatio(gl.Contract):
             "story": story,
             "goal_gen": str(goal_gen),
             "duration_days": str(duration_days),
-            "raised_gen": "0",
             "github_repo_url": github_repo_url,
             "live_url": live_url,
             "funding_purpose": funding_purpose,
             "status": status,
             "score": str(score),
-            "donor_count": "0",
             "created_at": gl.message_raw['datetime'],
         }
         self.campaigns[project_id] = json.dumps(project)
@@ -112,45 +102,6 @@ class Genatio(gl.Contract):
             "status": status,
             "score": str(score),
             "project_id": project_id
-        })
-
-    @gl.public.write.payable
-    def fund_project(self, project_id: str) -> str:
-        project_data = self.campaigns[project_id] if project_id in self.campaigns else None
-        if not project_data:
-            return json.dumps({"status": "error", "reason": "Project not found"})
-        project = json.loads(project_data)
-        if project["status"] != "active":
-            return json.dumps({"status": "error", "reason": "Project not accepting funds"})
-
-        amount = gl.message.value
-        if amount == u256(0):
-            return json.dumps({"status": "error", "reason": "No GEN sent"})
-
-        sender = gl.message.sender_address
-
-        # Forward GEN directly to creator wallet
-        if self.balance < amount:
-            return json.dumps({"status": "error", "reason": "Insufficient contract balance"})
-        _EOARecipient(Address(project["wallet"])).emit_transfer(value=amount)
-
-        # Record donation
-        project["raised_gen"] = str(u256(project.get("raised_gen", "0")) + u256(amount))
-        project["donor_count"] = str(u256(project["donor_count"]) + u256(1))
-        self.campaigns[project_id] = json.dumps(project)
-
-        self.donations.append(json.dumps({
-            "project_id": project_id,
-            "wallet": str(sender),
-            "amount_gen": str(amount),
-            "timestamp": gl.message_raw['datetime']
-        }))
-
-        goal_reached = u256(project.get("raised_gen", "0")) >= u256(project.get("goal_gen", "0"))
-        return json.dumps({
-            "status": "success",
-            "amount_gen": str(amount),
-            "goal_reached": goal_reached
         })
 
     @gl.public.write
@@ -234,15 +185,6 @@ class Genatio(gl.Contract):
             if project["title"].lower() == title.lower():
                 return json.dumps(project)
         return json.dumps(None)
-
-    @gl.public.view
-    def get_funders(self, project_id: str) -> str:
-        result = []
-        for d in self.donations:
-            parsed = json.loads(d)
-            if parsed["project_id"] == project_id:
-                result.append(parsed)
-        return json.dumps(result)
 
     @gl.public.view
     def get_blacklist(self) -> str:

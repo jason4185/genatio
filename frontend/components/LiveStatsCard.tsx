@@ -2,28 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const STAT_META = [
-  { key: "totalProjects" as const, label: "Projects Verified", duration: 1500, suffix: "" },
-  { key: "totalDonors" as const, label: "Total Donors", duration: 2000, suffix: "" },
-  { key: "totalRaised" as const, label: "Total Raised", duration: 2500, suffix: " GEN" },
-];
-
-function formatNum(n: number, suffix: string): string {
-  if (suffix === " GEN") return n.toLocaleString("en-US", { maximumFractionDigits: 0 }) + suffix;
-  return n.toLocaleString("en-US") + suffix;
-}
-
 function StatRow({
   base,
   label,
   duration,
-  suffix,
   isLast,
 }: {
   base: number;
   label: string;
   duration: number;
-  suffix: string;
   isLast: boolean;
 }) {
   const [displayed, setDisplayed] = useState(0);
@@ -67,7 +54,7 @@ function StatRow({
           fontVariantNumeric: "tabular-nums",
         } as React.CSSProperties}
       >
-        {formatNum(displayed, suffix)}
+        {displayed.toLocaleString("en-US")}
       </p>
       <p
         style={{
@@ -120,17 +107,11 @@ function SkeletonRow({ isLast }: { isLast: boolean }) {
 
 export function LiveStatsCard({
   totalProjects,
-  totalDonors,
-  totalRaised,
   loading,
 }: {
   totalProjects: number;
-  totalDonors: number;
-  totalRaised: number;
   loading: boolean;
 }) {
-  const values = [totalProjects, totalDonors, Math.round(totalRaised)];
-
   return (
     <>
       <style>{`
@@ -199,20 +180,17 @@ export function LiveStatsCard({
           </span>
         </div>
 
-        {loading
-          ? STAT_META.map((m, i) => (
-              <SkeletonRow key={m.key} isLast={i === STAT_META.length - 1} />
-            ))
-          : STAT_META.map((m, i) => (
-              <StatRow
-                key={`${m.key}-${values[i]}`}
-                base={values[i]}
-                label={m.label}
-                duration={m.duration}
-                suffix={m.suffix}
-                isLast={i === STAT_META.length - 1}
-              />
-            ))}
+        {loading ? (
+          <SkeletonRow isLast={true} />
+        ) : (
+          <StatRow
+            key={`projects-${totalProjects}`}
+            base={totalProjects}
+            label="Projects Verified"
+            duration={1500}
+            isLast={true}
+          />
+        )}
       </div>
     </>
   );
