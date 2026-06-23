@@ -201,8 +201,7 @@ Open `http://localhost:3000`, connect your wallet, and submit a project with a r
 
 ## Feedback
 
-Genatio is an active GenLayer Builder Program submission. Issues, suggestions, and pull requests are welcome on GitHub. If you find a bug in the verification or dispute logic, please open an issue with the transaction hash so it can be traced on the Bradbury explorer.
-
+Genatio is an active GenLayer Builder Program submission. Feedback and suggestions are welcome on GitHub.
 ---
 
 Built by [Jason](https://x.com/ja__so)
