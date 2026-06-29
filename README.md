@@ -1,6 +1,6 @@
 # Genatio
 
-Genatio is a trustless, GenLayer-powered app for verified open source grants and crowdfunding.
+Genatio is a trustless, GenLayer-powered app for verified open source funding.
 
 Genatio helps open source builders raise GEN from supporters after their app or project is verified by a GenLayer Intelligent Contract.
 
@@ -351,30 +351,6 @@ Campaigns, rejected submissions, donations, disputes, and dispute records are st
 - `gl.get_contract_at(Address(...))` - main contract access from the dispute contract
 - main contract project lookup from the dispute contract
 - `main.emit(on="accepted").reject_project(project_id)` - dispute callback to reject a project
-
----
-
-## Screenshots
-
-Screenshots will be added after the final production UI capture.
-
-<!--
-Recommended screenshots:
-1. Landing page
-2. Browse projects
-3. Project detail and funding card
-4. Submit project flow
-5. Dashboard
-6. Dispute/flag flow
-
-Place future screenshots in:
-docs/images/landing.png
-docs/images/browse.png
-docs/images/project-detail.png
-docs/images/submit.png
-docs/images/dashboard.png
-docs/images/dispute.png
--->
 
 ---
 
