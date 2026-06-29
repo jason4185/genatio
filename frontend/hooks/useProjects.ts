@@ -16,6 +16,9 @@ export interface Project {
   created_at: string | number;
   duration_days: string | number;
   wallet?: string;
+  raised_gen?: number | string;
+  donor_count?: number | string;
+  last_donor?: string;
 }
 
 function parseProjectsResult(data: unknown): Project[] {
@@ -41,9 +44,9 @@ export function useProjects(status: string = "", enabled = true) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       if (msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("network")) {
-        setError("Unable to connect. Please check your internet connection and try again.");
+        setError("We could not load this data right now. Please check your connection and try again.");
       } else {
-        setError("Unable to load projects. Please try again.");
+        setError("We could not load verified projects right now. Please refresh the page or try again shortly.");
       }
     } finally {
       setLoading(false);

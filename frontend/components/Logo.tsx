@@ -7,25 +7,26 @@ export function Logo({
   size?: number;
   showWordmark?: boolean;
 }) {
-  const dotSize = Math.max(4, Math.round(size * 0.18));
+  const dotSize = Math.max(4, Math.round(size * 0.17));
   const fontSize = `${Math.round(size * 0.846)}px`;
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-      {/* Shield icon */}
+    <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+      {/* Shield mark — blue verification shield with green-dot accent */}
       <svg
         width={size}
         height={size}
         viewBox="0 0 32 32"
         fill="none"
-        aria-hidden="true"
+        aria-label="Genatio"
+        role="img"
         style={{ flexShrink: 0 }}
       >
-        {/* Shield fill */}
+        {/* Shield body fill */}
         <path
           d="M16 2L29 8V17C29 23.5 23.5 28.5 16 30.5C8.5 28.5 3 23.5 3 17V8L16 2Z"
           style={{
-            fill: "color-mix(in srgb, var(--color-accent-blue) 14%, transparent)",
+            fill: "color-mix(in srgb, var(--color-accent-blue) 18%, transparent)",
           }}
         />
         {/* Shield border */}
@@ -38,11 +39,18 @@ export function Logo({
         />
         {/* Verification checkmark */}
         <path
-          d="M10 16L13.5 19.5L22 12"
+          d="M10 16.5L13.5 20L22 12"
           style={{ stroke: "var(--color-accent-blue)" }}
           strokeWidth="2.25"
           strokeLinecap="round"
           strokeLinejoin="round"
+        />
+        {/* Growth dot — green accent at shield base */}
+        <circle
+          cx="16"
+          cy="27"
+          r="2"
+          style={{ fill: "var(--color-primary)" }}
         />
       </svg>
 
@@ -56,7 +64,7 @@ export function Logo({
             letterSpacing: "-0.03em",
             display: "flex",
             alignItems: "baseline",
-            gap: "1px",
+            gap: "0px",
             lineHeight: 1,
           }}
         >
@@ -67,10 +75,10 @@ export function Logo({
               width: `${dotSize}px`,
               height: `${dotSize}px`,
               borderRadius: "50%",
-              backgroundColor: "var(--color-accent-blue)",
+              backgroundColor: "var(--color-primary)",
               display: "inline-block",
               marginLeft: "2px",
-              marginBottom: "2px",
+              marginBottom: "1px",
               flexShrink: 0,
             }}
           />

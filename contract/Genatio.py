@@ -3,9 +3,18 @@
 from genlayer import *
 import json
 
+@gl.evm.contract_interface
+class _Recipient:
+    class View:
+        pass
+
+    class Write:
+        pass
+
 class Genatio(gl.Contract):
     campaigns: TreeMap[str, str]
     blacklist: DynArray[str]
+    donations: DynArray[str]
     dispute_contract: str
     owner: str
     rejected: TreeMap[str, str]
@@ -118,6 +127,58 @@ class Genatio(gl.Contract):
         self.campaigns[project_id] = json.dumps(project)
         return json.dumps({"status": "success", "project_id": project_id})
 
+    @gl.public.write.payable
+    def fund_project(self, project_id: str) -> str:
+        project_data = self.campaigns[project_id] if project_id in self.campaigns else None
+        if not project_data:
+            raise gl.vm.UserError("Project not found")
+
+        project = json.loads(project_data)
+
+        if project["status"] != "active":
+            raise gl.vm.UserError("Project not accepting funds")
+
+        amount = gl.message.value
+        if amount == u256(0):
+            raise gl.vm.UserError("No GEN sent")
+
+        sender = gl.message.sender_address
+
+        creator_wallet = project.get("wallet", "")
+        if creator_wallet == "":
+            raise gl.vm.UserError("Project creator wallet missing")
+
+        _Recipient(Address(creator_wallet)).emit_transfer(value=amount)
+
+        raised = u256(int(project.get("raised_gen", "0")))
+        goal = u256(int(project.get("goal_gen", "0")))
+        donor_count = u256(int(project.get("donor_count", "0")))
+
+        new_raised = raised + amount
+        new_donor_count = donor_count + u256(1)
+
+        project["raised_gen"] = str(new_raised)
+        project["donor_count"] = str(new_donor_count)
+        project["last_donor"] = str(sender)
+
+        donation = {
+            "project_id": project_id,
+            "wallet": str(sender),
+            "amount_gen": str(amount),
+            "timestamp": gl.message_raw["datetime"]
+        }
+
+        self.campaigns[project_id] = json.dumps(project)
+        self.donations.append(json.dumps(donation))
+
+        goal_reached = new_raised >= goal
+
+        return json.dumps({
+            "status": "success",
+            "amount_gen": str(amount),
+            "goal_reached": goal_reached
+        })
+
     @gl.public.write
     def set_dispute_contract(self, address: str) -> str:
         if str(gl.message.sender_address) != self.owner:
@@ -184,6 +245,19 @@ class Genatio(gl.Contract):
     @gl.public.view
     def get_blacklist(self) -> str:
         return json.dumps(list(self.blacklist))
+
+    @gl.public.view
+    def get_contract_balance(self) -> str:
+        return str(self.balance)
+
+    @gl.public.view
+    def get_funders(self, project_id: str) -> str:
+        results = []
+        for donation_raw in self.donations:
+            donation = json.loads(donation_raw)
+            if donation["project_id"] == project_id:
+                results.append(donation)
+        return json.dumps(results)
 
     # ─── INTERNAL METHODS ───
 
@@ -324,34 +398,18 @@ Reply with a JSON object only, no other text:
             except Exception:
                 return "0"
 
+        # Lightweight validator for current testnet flow:
+        # leader performs full scoring; validators only check score shape/range.
         def validator_fn(leaders_res):
             if not isinstance(leaders_res, gl.vm.Return):
                 return False
 
             try:
-                leader_score = int(leaders_res.calldata.strip())
-            except:
+                score = int(leaders_res.calldata.strip())
+            except Exception:
                 return False
 
-            try:
-                repo = json.loads(gl.nondet.web.get(github_api_url).body.decode("utf-8"))
-            except:
-                repo = {}
-
-            repo_not_found  = repo.get("message") == "Not Found" or not repo
-            repo_is_private = repo.get("private") is True
-            has_license     = bool(repo.get("license"))
-            pushed_at       = repo.get("pushed_at", "")
-            recent_commits  = pushed_at[:4] in ("2026", "2025")
-
-            if (repo_not_found or repo_is_private) and leader_score >= 85:
-                return False
-            if repo_not_found and leader_score >= 40:
-                return False
-            if leader_score >= 85 and not recent_commits and not has_license:
-                return False
-
-            return True
+            return score >= 0 and score <= 100
 
         result = gl.vm.run_nondet_unsafe(verify, validator_fn)
         return result

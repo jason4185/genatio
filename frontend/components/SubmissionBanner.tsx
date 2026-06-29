@@ -161,7 +161,7 @@ export function SubmissionBanner() {
           <strong style={{ color: "var(--color-text-primary)" }}>
             &ldquo;{banner.title}&rdquo;
           </strong>{" "}
-          is being verified by GenLayer Intelligent Contracts&hellip;
+          is being reviewed by GenLayer&hellip;
         </>
       );
       break;
@@ -175,11 +175,11 @@ export function SubmissionBanner() {
           <strong style={{ color: "var(--color-accent-green)" }}>
             &ldquo;{banner.title}&rdquo;
           </strong>{" "}
-          was approved &mdash; Score{" "}
+          was approved with a score of{" "}
           <strong style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", color: "var(--color-text-primary)" }}>
             {banner.score}/100
           </strong>
-          . Now live on Genatio.
+          . It is now live on Genatio.
         </>
       );
       if (banner.projectId) {
@@ -195,7 +195,7 @@ export function SubmissionBanner() {
               whiteSpace: "nowrap",
             }}
           >
-            View Project &rarr;
+            View Project
           </a>
         );
       }
@@ -210,7 +210,7 @@ export function SubmissionBanner() {
           <strong style={{ color: "var(--color-danger)" }}>
             &ldquo;{banner.title}&rdquo;
           </strong>{" "}
-          was not approved &mdash; Score{" "}
+          did not meet the verification threshold. Score{" "}
           <strong style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", color: "var(--color-text-primary)" }}>
             {banner.score}/100
           </strong>
@@ -229,7 +229,7 @@ export function SubmissionBanner() {
             whiteSpace: "nowrap",
           }}
         >
-          Resubmit &rarr;
+          Try again
         </a>
       );
       break;

@@ -36,24 +36,29 @@ const EMPTY_FORM: FormData = {
 
 function validateStep1(d: FormData): Record<string, string> {
   const e: Record<string, string> = {};
-  if (!d.title.trim()) e.title = "Title is required";
-  if (!d.about.trim()) e.about = "Project description is required";
-  if (!d.goalGen) e.goalGen = "Funding goal is required";
-  else if (isNaN(Number(d.goalGen)) || Number(d.goalGen) <= 0)
-    e.goalGen = "Goal must be a positive number";
+  if (!d.title.trim()) e.title = "Project title is required.";
+  if (!d.about.trim()) e.about = "Project description is required.";
+  if (!d.fundingPurpose.trim())
+    e.fundingPurpose = "Describe how the grant will be used.";
   return e;
 }
 
 function validateStep2(d: FormData): Record<string, string> {
   const e: Record<string, string> = {};
-  if (!d.githubUrl.trim()) e.githubUrl = "GitHub URL is required";
+  if (!d.githubUrl.trim()) e.githubUrl = "GitHub repository URL is required.";
   else if (!d.githubUrl.startsWith("https://github.com/"))
-    e.githubUrl = "Must start with https://github.com/";
-  if (!d.liveUrl.trim()) e.liveUrl = "Live URL is required";
+    e.githubUrl = "Enter a GitHub URL that starts with https://github.com/.";
+  if (!d.liveUrl.trim()) e.liveUrl = "Live project URL is required.";
   else if (!d.liveUrl.startsWith("https://"))
-    e.liveUrl = "Must start with https://";
-  if (!d.fundingPurpose.trim())
-    e.fundingPurpose = "Please describe how you will use the funds";
+    e.liveUrl = "Enter a secure URL that starts with https://.";
+  return e;
+}
+
+function validateStep3(d: FormData): Record<string, string> {
+  const e: Record<string, string> = {};
+  if (!d.goalGen) e.goalGen = "Funding goal is required.";
+  else if (isNaN(Number(d.goalGen)) || Number(d.goalGen) <= 0)
+    e.goalGen = "Amount must be greater than 0.";
   return e;
 }
 
@@ -111,9 +116,9 @@ function FieldError({ msg }: { msg?: string }) {
 
 function StepIndicator({ step }: { step: Step }) {
   const steps = [
-    { num: 1, label: "Project Info" },
-    { num: 2, label: "Links & Purpose" },
-    { num: 3, label: "Review & Submit" },
+    { num: 1, label: "Project Basics" },
+    { num: 2, label: "Proof" },
+    { num: 3, label: "Funding & Submit" },
   ];
 
   return (
@@ -319,13 +324,20 @@ export default function SubmitPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const validateFundingStep = () => {
+    const e = validateStep3(form);
+    if (Object.keys(e).length) { setErrors(e); return false; }
+    setErrors({});
+    return true;
+  };
+
   const handleSubmit = async () => {
     if (!address) return;
     setSubmitError(null);
     setSubmitting(true);
 
     if (!form.goalGen || Number(form.goalGen) <= 0) {
-      setSubmitError("Please enter a valid funding goal.");
+      setSubmitError("Enter a valid funding goal.");
       setSubmitting(false);
       return;
     }
@@ -341,7 +353,7 @@ export default function SubmitPage() {
       });
       if (existing && JSON.parse(existing as string)) {
         setSubmitting(false);
-        setSubmitError("Project name already exists. Please choose a unique name.");
+        setSubmitError("A project with this title already exists. Choose a unique project title.");
         return;
       }
 
@@ -355,7 +367,7 @@ export default function SubmitPage() {
         (p) => p.wallet.toLowerCase() === address.toLowerCase()
       );
       if (myActive.length >= 2) {
-        setSubmitError("You already have 2 active projects. Close one before submitting a new project.");
+        setSubmitError("This wallet already has two active projects. End an active campaign before submitting another project.");
         setSubmitting(false);
         return;
       }
@@ -393,21 +405,21 @@ export default function SubmitPage() {
       setSubmitting(false);
       const errMsg = (err instanceof Error ? err.message : String(err)).toLowerCase();
       if (errMsg.includes("parse error") || errMsg.includes("unmarshal")) {
-        setSubmitError("GenLayer network is busy. Please wait a moment and try again.");
+        setSubmitError("The GenLayer network is busy. Please wait a moment and try again.");
       } else if (errMsg.includes("rate limit")) {
-        setSubmitError("Too many requests. Please wait 30 seconds and try again.");
+        setSubmitError("Too many requests were submitted. Please wait 30 seconds and try again.");
       } else if (errMsg.includes("timed out") || errMsg.includes("timeout")) {
-        setSubmitError("Network timeout. Please check your connection and try again.");
+        setSubmitError("The request timed out. Please check your connection and try again.");
       } else if (errMsg.includes("user rejected") || errMsg.includes("rejected the request")) {
-        setSubmitError("Transaction cancelled.");
+        setSubmitError("Transaction was declined in your wallet.");
       } else if (errMsg.includes("insufficient funds") || errMsg.includes("insufficient balance")) {
-        setSubmitError("Insufficient GEN balance. Please add funds to your wallet.");
+        setSubmitError("Your wallet does not have enough GEN to complete this transaction.");
       } else if (errMsg.includes("reverted") || errMsg.includes("execution failed")) {
-        setSubmitError("Transaction failed. Please try again.");
+        setSubmitError("Project submission could not be completed. Please review the details and try again.");
       } else if (errMsg.includes("failed to fetch") || errMsg.includes("networkerror") || errMsg.includes("network error")) {
-        setSubmitError("Unable to connect. Please check your internet connection and try again.");
+        setSubmitError("We could not connect to the network. Please check your connection and try again.");
       } else {
-        setSubmitError("Something went wrong. Please try again.");
+        setSubmitError("Project submission could not be completed. Please try again shortly.");
       }
     }
   };
@@ -462,7 +474,7 @@ export default function SubmitPage() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                Connect Wallet to Submit
+                Connect Wallet to Submit Project
               </h2>
               <p
                 style={{
@@ -473,7 +485,7 @@ export default function SubmitPage() {
                   maxWidth: "360px",
                 }}
               >
-                A wallet is required to submit your project to the GenLayer Bradbury network.
+                Connect your wallet to submit a project for GenLayer verification.
               </p>
             </div>
             <ConnectButton />
@@ -553,7 +565,7 @@ export default function SubmitPage() {
                 margin: "0 0 0.625rem",
               }}
             >
-              Submit Your Project
+              Submit Project
             </h1>
             <p
               style={{
@@ -563,7 +575,7 @@ export default function SubmitPage() {
                 margin: "0 0 2.5rem",
               }}
             >
-              Verified by GenLayer Intelligent Contracts through Optimistic Democracy.
+              Genatio reviews your repository, live project, story, and funding purpose before listing a campaign.
             </p>
 
             <StepIndicator step={step} />
@@ -592,12 +604,12 @@ export default function SubmitPage() {
                       letterSpacing: "-0.02em",
                     }}
                   >
-                    Project Info
+                    Step 1: Project basics
                   </h2>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "1.375rem" }}>
                     <div>
-                      <Label required>Project Name</Label>
+                      <Label required>Project title</Label>
                       <input
                         className="submit-input"
                         type="text"
@@ -618,7 +630,7 @@ export default function SubmitPage() {
                         className="submit-textarea"
                         value={form.about}
                         onChange={set("about")}
-                        placeholder="Describe what your project does..."
+                        placeholder="Describe what your project does."
                         rows={4}
                         style={{
                           ...inputBase,
@@ -630,59 +642,22 @@ export default function SubmitPage() {
                       <FieldError msg={errors.about} />
                     </div>
 
-                    <div className="form-split">
-                      <div>
-                        <Label required>Funding goal (GEN)</Label>
-                        <input
-                          className="submit-input"
-                          type="number"
-                          min="1"
-                          value={form.goalGen}
-                          onChange={set("goalGen")}
-                          placeholder="e.g. 100"
-                          style={{
-                            ...inputBase,
-                            borderColor: errors.goalGen ? "var(--color-danger)" : "var(--color-border-subtle)",
-                          }}
-                        />
-                        <FieldError msg={errors.goalGen} />
-                      </div>
-                      <div>
-                        <Label required>Campaign duration</Label>
-                        <div style={{ position: "relative" }}>
-                          <select
-                            className="submit-select"
-                            value={form.durationDays}
-                            onChange={set("durationDays")}
-                            style={{
-                              ...inputBase,
-                              appearance: "none",
-                              WebkitAppearance: "none",
-                              paddingRight: "2.25rem",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <option value="7">7 days</option>
-                            <option value="14">14 days</option>
-                            <option value="30">30 days</option>
-                          </select>
-                          <svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 12 12"
-                            style={{
-                              position: "absolute",
-                              right: "0.875rem",
-                              top: "50%",
-                              transform: "translateY(-50%)",
-                              pointerEvents: "none",
-                              fill: "var(--color-text-muted)",
-                            }}
-                          >
-                            <path d="M2 4l4 4 4-4" stroke="var(--color-text-muted)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-                          </svg>
-                        </div>
-                      </div>
+                    <div>
+                      <Label required>Funding purpose</Label>
+                      <textarea
+                        className="submit-textarea"
+                        value={form.fundingPurpose}
+                        onChange={set("fundingPurpose")}
+                        placeholder="Explain how the grant will help you ship the next milestone."
+                        rows={4}
+                        style={{
+                          ...inputBase,
+                          resize: "vertical",
+                          lineHeight: 1.6,
+                          borderColor: errors.fundingPurpose ? "var(--color-danger)" : "var(--color-border-subtle)",
+                        }}
+                      />
+                      <FieldError msg={errors.fundingPurpose} />
                     </div>
                   </div>
 
@@ -707,7 +682,7 @@ export default function SubmitPage() {
                       letterSpacing: "-0.02em",
                     }}
                   >
-                    Links & Purpose
+                    Step 2: Proof
                   </h2>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "1.375rem" }}>
@@ -747,23 +722,6 @@ export default function SubmitPage() {
                       <FieldError msg={errors.liveUrl} />
                     </div>
 
-                    <div>
-                      <Label required>How will you use the funds?</Label>
-                      <textarea
-                        className="submit-textarea"
-                        value={form.fundingPurpose}
-                        onChange={set("fundingPurpose")}
-                        placeholder="Be specific about deliverables and milestones..."
-                        rows={5}
-                        style={{
-                          ...inputBase,
-                          resize: "vertical",
-                          lineHeight: 1.6,
-                          borderColor: errors.fundingPurpose ? "var(--color-danger)" : "var(--color-border-subtle)",
-                        }}
-                      />
-                      <FieldError msg={errors.fundingPurpose} />
-                    </div>
                   </div>
 
                   <NavButtons
@@ -788,8 +746,63 @@ export default function SubmitPage() {
                       letterSpacing: "-0.02em",
                     }}
                   >
-                    Review & Submit
+                    Step 3: Funding & submit
                   </h2>
+
+                  <div className="form-split" style={{ marginBottom: "1.5rem" }}>
+                    <div>
+                      <Label required>Funding goal (GEN)</Label>
+                      <input
+                        className="submit-input"
+                        type="number"
+                        min="1"
+                        value={form.goalGen}
+                        onChange={set("goalGen")}
+                        placeholder="e.g. 100"
+                        style={{
+                          ...inputBase,
+                          borderColor: errors.goalGen ? "var(--color-danger)" : "var(--color-border-subtle)",
+                        }}
+                      />
+                      <FieldError msg={errors.goalGen} />
+                    </div>
+                    <div>
+                      <Label required>Campaign duration</Label>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          className="submit-select"
+                          value={form.durationDays}
+                          onChange={set("durationDays")}
+                          style={{
+                            ...inputBase,
+                            appearance: "none",
+                            WebkitAppearance: "none",
+                            paddingRight: "2.25rem",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <option value="7">7 days</option>
+                          <option value="14">14 days</option>
+                          <option value="30">30 days</option>
+                        </select>
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 12 12"
+                          style={{
+                            position: "absolute",
+                            right: "0.875rem",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            pointerEvents: "none",
+                            fill: "var(--color-text-muted)",
+                          }}
+                        >
+                          <path d="M2 4l4 4 4-4" stroke="var(--color-text-muted)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
 
                   <div
                     style={{
@@ -825,8 +838,7 @@ export default function SubmitPage() {
                     {[
                       { label: "Name", value: form.title },
                       { label: "About", value: form.about },
-                      { label: "Goal", value: `${form.goalGen} GEN` },
-                      { label: "Duration", value: `${form.durationDays} days` },
+                      { label: "Funding purpose", value: form.fundingPurpose },
                     ].map((row, i, arr) => (
                       <div
                         key={row.label}
@@ -880,13 +892,14 @@ export default function SubmitPage() {
                           textTransform: "uppercase",
                         }}
                       >
-                        Links & Purpose
+                        Proof & Funding
                       </span>
                     </div>
                     {[
                       { label: "GitHub", value: form.githubUrl },
                       { label: "Live URL", value: form.liveUrl },
-                      { label: "Fund use", value: form.fundingPurpose },
+                      { label: "Goal", value: `${form.goalGen} GEN` },
+                      { label: "Duration", value: `${form.durationDays} days` },
                     ].map((row, i, arr) => (
                       <div
                         key={row.label}
@@ -948,7 +961,7 @@ export default function SubmitPage() {
                         lineHeight: 1.55,
                       }}
                     >
-                      Your project will be verified by GenLayer Intelligent Contracts through Optimistic Democracy. This may take 2–5 minutes.
+                      Your project will be submitted for GenLayer verification. This may take a few minutes.
                     </p>
                   </div>
 
@@ -1025,9 +1038,11 @@ export default function SubmitPage() {
 
                   <NavButtons
                     onBack={() => goBack(2)}
-                    onNext={handleSubmit}
-                    nextLabel="Submit Your Project →"
-                    loadingLabel="Submitting..."
+                    onNext={() => {
+                      if (validateFundingStep()) handleSubmit();
+                    }}
+                    nextLabel="Submit Project"
+                    loadingLabel="Submitting project for verification..."
                     loading={submitting}
                   />
                 </>

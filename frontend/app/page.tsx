@@ -3,9 +3,8 @@
 import React from "react";
 import { motion, useInView } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
-import { GitBranch, Shield, Wallet } from "lucide-react";
+import { ArrowRight, Coins, HeartHandshake, ShieldCheck, Sprout, Users } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import VerificationTicker from "@/components/VerificationTicker";
 import ProjectCard from "@/components/ProjectCard";
 import { LiveStatsCard } from "@/components/LiveStatsCard";
 import { useProjects } from "@/hooks/useProjects";
@@ -79,17 +78,20 @@ function StatPill({
   value,
   label,
   inView,
+  Icon,
 }: {
   value: number;
   label: string;
   inView: boolean;
+  Icon: React.ElementType;
 }) {
   const [displayed, setDisplayed] = useState(0);
   const rafRef = useRef<number>(0);
   const started = useRef(false);
 
   useEffect(() => {
-    if (!inView || started.current) return;
+    // wait for a real value — don't animate while stats are still loading
+    if (!inView || value === 0 || started.current) return;
     started.current = true;
     const start = performance.now();
     const duration = 1400;
@@ -111,14 +113,17 @@ function StatPill({
     <div
       style={{
         padding: "0.625rem 1.25rem",
-        backgroundColor: "color-mix(in srgb, var(--color-accent-blue) 6%, transparent)",
-        border: "1px solid color-mix(in srgb, var(--color-accent-blue) 20%, transparent)",
+        backgroundColor: "var(--color-accent-blue-soft)",
+        border: "1px solid color-mix(in srgb, var(--color-accent-blue) 18%, var(--color-border-subtle))",
         borderRadius: "100px",
         display: "flex",
         alignItems: "center",
         gap: "0.5rem",
       }}
     >
+      <span style={{ display: "inline-flex", alignItems: "center", color: "var(--color-accent-blue)" }}>
+        <Icon size={14} />
+      </span>
       <span
         style={{
           fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
@@ -191,7 +196,7 @@ function HiwNode({
           fontSize: "8rem",
           fontWeight: 800,
           lineHeight: 1,
-          color: "var(--color-accent-blue)",
+          color: "var(--color-accent-cyan)",
           opacity: 0.06,
           letterSpacing: "-0.05em",
           userSelect: "none",
@@ -217,16 +222,16 @@ function HiwNode({
           position: "relative",
           zIndex: 1,
           flexShrink: 0,
-          boxShadow: "0 0 20px color-mix(in srgb, var(--color-accent-blue) 20%, transparent)",
+          boxShadow: "0 12px 24px color-mix(in srgb, var(--color-accent-blue) 14%, transparent)",
           transition: "box-shadow 0.25s ease",
         }}
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLDivElement).style.boxShadow =
-            "0 0 32px color-mix(in srgb, var(--color-accent-blue) 50%, transparent)";
+            "0 18px 36px color-mix(in srgb, var(--color-accent-blue) 18%, transparent)";
         }}
         onMouseLeave={(e) => {
           (e.currentTarget as HTMLDivElement).style.boxShadow =
-            "0 0 20px color-mix(in srgb, var(--color-accent-blue) 20%, transparent)";
+            "0 12px 24px color-mix(in srgb, var(--color-accent-blue) 14%, transparent)";
         }}
       >
         <Icon size={24} />
@@ -286,6 +291,13 @@ function toCardProps(p: Project) {
     score: Number(p.score),
     status: "ACTIVE" as const,
     projectId: String(p.id),
+    githubUrl: p.github_repo_url,
+    liveUrl: p.live_url,
+    raisedGen: Number(p.raised_gen ?? 0) / 1e18,
+    goalGen: Number(p.goal_gen ?? 0) / 1e18,
+    donorCount: Number(p.donor_count ?? 0),
+    createdAt: p.created_at,
+    durationDays: p.duration_days,
   };
 }
 
@@ -294,7 +306,7 @@ function isRecentlyVerified(p: Project): boolean {
 }
 
 const QUOTE_TEXT =
-  "We never hold your funds. We can't approve or reject your project. The Intelligent Contract verifies everything. You send GEN directly to the builder.";
+  "Approved builders get funded by the community. Genatio verifies submissions first, so supporters can back real open source work with more confidence.";
 
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null);
@@ -307,13 +319,15 @@ export default function LandingPage() {
 
   const {
     totalProjects,
+    totalDonors,
+    totalRaisedGen,
     loading: statsLoading,
   } = useStats();
 
-  const recentlyVerifiedCount = activeProjects.filter(isRecentlyVerified).length;
-
   const statPills = [
-    { value: statsLoading ? 0 : totalProjects, label: "Projects Verified" },
+    { value: statsLoading ? 0 : totalProjects, label: "Projects Verified", Icon: ShieldCheck },
+    { value: statsLoading ? 0 : totalDonors, label: "Community Donors", Icon: Users },
+    { value: statsLoading ? 0 : Math.round(totalRaisedGen), label: "GEN Raised", Icon: Coins },
   ];
 
 
@@ -323,13 +337,6 @@ export default function LandingPage() {
         @keyframes dash-flow {
           from { background-position: 0 0; }
           to { background-position: 14px 0; }
-        }
-        @keyframes ticker-glow {
-          0%, 100% { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-accent-blue) 18%, transparent)); }
-          50% { filter: drop-shadow(0 0 22px color-mix(in srgb, var(--color-accent-blue) 38%, transparent)); }
-        }
-        .ticker-glow {
-          animation: ticker-glow 3s ease-in-out infinite;
         }
         .hero-grid {
           display: grid;
@@ -408,45 +415,22 @@ export default function LandingPage() {
                 textAlign: "center",
               }}
             >
-              {/* Eyebrow badge */}
-              <motion.div
+              <motion.p
                 variants={fadeIn}
                 transition={{ duration: 0.6 }}
                 className="hero-eyebrow"
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  backgroundColor: "color-mix(in srgb, var(--color-accent-blue) 8%, transparent)",
-                  border: "1px solid color-mix(in srgb, var(--color-accent-blue) 25%, transparent)",
-                  borderRadius: "100px",
-                  padding: "0.35rem 0.875rem",
-                  width: "fit-content",
+                  fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
+                  color: "var(--color-accent-blue)",
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
                   margin: "0 auto",
                 }}
               >
-                <span
-                  style={{
-                    width: "6px",
-                    height: "6px",
-                    borderRadius: "50%",
-                    backgroundColor: "var(--color-accent-blue)",
-                    display: "block",
-                    animation: "pulse-live 1.4s ease-in-out infinite",
-                  }}
-                />
-                <span
-                  style={{
-                    fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    color: "var(--color-accent-blue)",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  Live on GenLayer Bradbury Testnet
-                </span>
-              </motion.div>
+                VERIFIED BUILDER FUNDING
+              </motion.p>
 
               {/* Headline */}
               <motion.h1
@@ -496,9 +480,25 @@ export default function LandingPage() {
                   maxWidth: "500px",
                 }}
               >
-                GenLayer Intelligent Contracts verify every submission through
-                Optimistic Democracy
+                Genatio verifies builder submissions with GenLayer, then lets
+                supporters fund approved projects with GEN. Creator payouts
+                complete after on-chain finalization.
               </motion.p>
+
+              <motion.div
+                variants={fadeUp}
+                transition={{ duration: 0.6 }}
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "0.75rem",
+                  justifyContent: "center",
+                }}
+              >
+                {statPills.map((pill) => (
+                  <StatPill key={pill.label} {...pill} inView={heroInView} />
+                ))}
+              </motion.div>
 
               {/* CTAs */}
               <motion.div
@@ -518,7 +518,7 @@ export default function LandingPage() {
                       position: "absolute",
                       inset: 0,
                       borderRadius: "8px",
-                      border: "2px solid var(--color-accent-blue)",
+                      border: "2px solid var(--color-primary)",
                       pointerEvents: "none",
                     }}
                     animate={{ scale: [1, 1.22, 1.22], opacity: [0.55, 0, 0] }}
@@ -531,11 +531,12 @@ export default function LandingPage() {
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
+                      gap: "0.5rem",
                       fontFamily: "var(--font-jakarta), system-ui, sans-serif",
                       fontSize: "0.9375rem",
                       fontWeight: 600,
-                      color: "var(--color-text-primary)",
-                      backgroundColor: "var(--color-accent-blue)",
+                      color: "var(--color-primary-foreground)",
+                      backgroundColor: "var(--color-primary)",
                       border: "none",
                       borderRadius: "8px",
                       padding: "0.75rem 1.5rem",
@@ -544,16 +545,19 @@ export default function LandingPage() {
                       letterSpacing: "-0.01em",
                     }}
                   >
-                    Submit Your Project →
+                    <Sprout size={16} />
+                    Submit Project
+                    <ArrowRight size={16} />
                   </motion.a>
                 </div>
                 <motion.a
-                  href="#projects"
+                  href="/browse"
                   whileHover={{ scale: 1.04 }}
                   whileTap={{ scale: 0.97 }}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
+                    gap: "0.5rem",
                     fontFamily: "var(--font-jakarta), system-ui, sans-serif",
                     fontSize: "0.9375rem",
                     fontWeight: 500,
@@ -576,7 +580,9 @@ export default function LandingPage() {
                     e.currentTarget.style.color = "var(--color-text-secondary)";
                   }}
                 >
+                  <ShieldCheck size={16} />
                   Browse Projects
+                  <ArrowRight size={16} />
                 </motion.a>
               </motion.div>
             </div>
@@ -590,24 +596,13 @@ export default function LandingPage() {
             >
               <LiveStatsCard
                 totalProjects={totalProjects}
-                recentlyVerified={recentlyVerifiedCount}
+                totalDonors={totalDonors}
+                totalRaisedGen={totalRaisedGen}
                 loading={statsLoading || projectsLoading}
               />
             </motion.div>
           </motion.div>
 
-          {/* Ticker */}
-          <motion.div
-            variants={fadeUp}
-            initial="hidden"
-            animate={heroInView ? "visible" : "hidden"}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            style={{ marginTop: "3.5rem" }}
-          >
-            <div className="ticker-glow">
-              <VerificationTicker />
-            </div>
-          </motion.div>
         </section>
 
         {/* ── HOW IT WORKS ────────────────────────────────────── */}
@@ -683,7 +678,7 @@ export default function LandingPage() {
                   height: "100%",
                   width: "100%",
                   backgroundImage:
-                    "repeating-linear-gradient(to right, var(--color-accent-blue) 0, var(--color-accent-blue) 8px, transparent 8px, transparent 18px)",
+                    "repeating-linear-gradient(to right, var(--color-primary) 0, var(--color-primary) 8px, transparent 8px, transparent 18px)",
                   backgroundSize: "18px 2px",
                   opacity: 0.3,
                   animation: "dash-flow 1.2s linear infinite",
@@ -694,23 +689,23 @@ export default function LandingPage() {
             <div className="hiw-grid">
               <HiwNode
                 number="01"
-                Icon={GitBranch}
+                Icon={Sprout}
                 title="Submit your project"
-                body="Connect your wallet, paste your GitHub URL, write about your project, set your funding goal and duration."
+                body="Builders submit project details, GitHub proof, live URL, funding goal, and campaign duration."
                 delay={0}
               />
               <HiwNode
                 number="02"
-                Icon={Shield}
-                title="Intelligent Contract verifies"
-                body="GenLayer Intelligent Contracts score your project across several factors through Optimistic Democracy."
+                Icon={ShieldCheck}
+                title="GenLayer verifies"
+                body="Genatio uses an Intelligent Contract to review the submission and assign a verification score."
                 delay={0.3}
               />
               <HiwNode
                 number="03"
-                Icon={Wallet}
-                title="Community funds directly"
-                body="Approved projects go live immediately. Donors send GEN directly to your wallet."
+                Icon={HeartHandshake}
+                title="Community funds"
+                body="Supporters fund approved projects with GEN. Contributions are recorded on-chain, and creator payouts complete after finalization."
                 delay={0.6}
               />
             </div>
@@ -810,7 +805,7 @@ export default function LandingPage() {
                 </div>
                 {projectsLoading ? (
                   <div style={{ textAlign: "center", padding: "2rem 0", fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", color: "var(--color-text-muted)" }}>
-                    Loading…
+                    Loading verified projects...
                   </div>
                 ) : recent.length === 0 ? (
                   <div style={{ padding: "2rem 1.5rem", fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", color: "var(--color-text-muted)", border: "1px dashed var(--color-border-subtle)", borderRadius: "12px", textAlign: "center" }}>
@@ -866,12 +861,11 @@ export default function LandingPage() {
                 </div>
                 {projectsLoading ? (
                   <div style={{ textAlign: "center", padding: "2rem 0", fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", color: "var(--color-text-muted)" }}>
-                    Loading…
+                    Loading verified projects...
                   </div>
                 ) : topRated.length === 0 ? (
                   <div style={{ padding: "2rem 1.5rem", fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", color: "var(--color-text-muted)", border: "1px dashed var(--color-border-subtle)", borderRadius: "12px", textAlign: "center" }}>
-                    No active projects yet. Be the first to{" "}
-                    <a href="/submit" style={{ color: "var(--color-accent-blue)", textDecoration: "underline" }}>submit</a>.
+                    No active projects yet. Verified projects will appear here after they are approved.
                   </div>
                 ) : (
                   <div className="projects-grid">
@@ -949,7 +943,7 @@ export default function LandingPage() {
               position: "absolute",
               inset: 0,
               background:
-                "radial-gradient(ellipse 70% 60% at 50% 50%, color-mix(in srgb, var(--color-accent-blue) 8%, transparent) 0%, transparent 70%)",
+                "radial-gradient(ellipse 70% 60% at 50% 50%, color-mix(in srgb, var(--color-accent-cyan) 10%, transparent) 0%, transparent 70%)",
               pointerEvents: "none",
             }}
           />

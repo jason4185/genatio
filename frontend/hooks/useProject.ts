@@ -21,11 +21,11 @@ export function useProject(projectId: string | null, pollInterval = 30_000) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       if (msg === "not_found") {
-        setError("Project not found.");
+        setError("We could not find this project.");
       } else if (msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("network")) {
-        setError("Unable to connect. Please check your internet connection and try again.");
+        setError("We could not load this data right now. Please check your connection and try again.");
       } else {
-        setError("Unable to load this project. Please try again.");
+        setError("We could not load this project right now. Please refresh the page or try again shortly.");
       }
     } finally {
       if (isInitial) setLoading(false);
@@ -44,5 +44,5 @@ export function useProject(projectId: string | null, pollInterval = 30_000) {
     return () => clearInterval(interval);
   }, [projectId, fetchProject, pollInterval]);
 
-  return { project, loading, error };
+  return { project, loading, error, refetch: fetchProject };
 }

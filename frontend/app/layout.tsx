@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { Providers } from "@/components/Providers";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
@@ -43,8 +42,7 @@ export default function RootLayout({
       <body
         className={`${jakarta.variable} ${jetbrainsMono.variable} antialiased min-h-screen`}
       >
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          <AnimatedBackground />
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <Providers>{children}</Providers>
         </ThemeProvider>
       </body>

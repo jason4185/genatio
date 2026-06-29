@@ -179,7 +179,7 @@ function FlagVerifyContent({
                 margin: 0,
               }}
             >
-              {valid ? "Flag Confirmed" : "Flag Dismissed"}
+              {valid ? "Report Confirmed" : "Report Reviewed"}
             </motion.h1>
           </motion.div>
 
@@ -198,7 +198,7 @@ function FlagVerifyContent({
           >
             {valid
               ? <>The project <strong style={{ color: "var(--color-text-primary)" }}>&ldquo;{title}&rdquo;</strong> has been removed from Genatio.</>
-              : <>The project <strong style={{ color: "var(--color-text-primary)" }}>&ldquo;{title}&rdquo;</strong> appears legitimate and remains on Genatio.</>
+              : <>The project <strong style={{ color: "var(--color-text-primary)" }}>&ldquo;{title}&rdquo;</strong> remains listed on Genatio.</>
             }
           </motion.p>
         </motion.div>
@@ -231,7 +231,7 @@ function FlagVerifyContent({
               onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
               onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
             >
-              Back to Project &rarr;
+              View Project
             </a>
           )}
           {valid && (
@@ -255,7 +255,7 @@ function FlagVerifyContent({
               onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
               onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
             >
-              Go to Dashboard &rarr;
+              Go to Dashboard
             </a>
           )}
           <a
@@ -402,7 +402,7 @@ function VerifyContent() {
               margin: 0,
             }}
           >
-            {approved ? "Project Approved" : "Project Not Approved"}
+            {approved ? "Project Approved" : "Project did not meet the verification threshold."}
           </motion.h1>
 
           {!approved && (
@@ -420,7 +420,7 @@ function VerifyContent() {
             >
               {reasonParam ? reasonParam : (
                 <>
-                  Your project did not meet the minimum threshold of{" "}
+                  Review the feedback and try again with stronger project evidence. Minimum score:{" "}
                   <span
                     style={{
                       fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
@@ -598,7 +598,7 @@ function VerifyContent() {
             onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.88")}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
           >
-            {approved ? "View Your Project →" : "Improve and Resubmit →"}
+            {approved ? "View Project" : "Try again"}
           </a>
           <a
             href="/dashboard"

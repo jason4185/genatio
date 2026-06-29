@@ -8,23 +8,20 @@ import { useProjects } from "@/hooks/useProjects";
 import type { Project } from "@/hooks/useProjects";
 import { Logo } from "@/components/Logo";
 
-type FilterTab = "all" | "active" | "ending-soon" | "recently-verified" | "ended";
+type FilterTab = "active" | "ended";
 type SortKey = "recently-added" | "highest-score" | "ending-soon";
 
 const PAGE_SIZE = 9;
 
 const FILTER_TABS: { value: FilterTab; label: string }[] = [
-  { value: "all", label: "All" },
   { value: "active", label: "Active" },
-  { value: "ending-soon", label: "Ending Soon" },
-  { value: "recently-verified", label: "Recently Verified" },
   { value: "ended", label: "Ended" },
 ];
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "recently-added", label: "Recently Added" },
-  { value: "highest-score", label: "Highest Score" },
-  { value: "ending-soon", label: "Ending Soon" },
+  { value: "recently-added", label: "Recently added" },
+  { value: "highest-score", label: "Highest score" },
+  { value: "ending-soon", label: "Ending soon" },
 ];
 
 function extractRepo(url: string): string {
@@ -48,6 +45,13 @@ function toCardProps(p: Project) {
     description: p.story,
     score: Number(p.score) || 0,
     status: p.status,
+    githubUrl: p.github_repo_url,
+    liveUrl: p.live_url,
+    raisedGen: Number(p.raised_gen ?? 0) / 1e18,
+    goalGen: Number(p.goal_gen ?? 0) / 1e18,
+    donorCount: Number(p.donor_count ?? 0),
+    createdAt: p.created_at,
+    durationDays: p.duration_days,
     daysLeft: computeDaysLeft(p.created_at, p.duration_days),
   };
 }
@@ -107,7 +111,7 @@ export default function BrowsePage() {
   const statsLoading = loading;
 
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<FilterTab>("all");
+  const [filter, setFilter] = useState<FilterTab>("active");
   const [sort, setSort] = useState<SortKey>("recently-added");
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
 
@@ -122,14 +126,6 @@ export default function BrowsePage() {
       result = result.filter(
         (p) => p.name.toLowerCase().includes(q) || p.repo.toLowerCase().includes(q)
       );
-    }
-
-    if (!isEndedTab) {
-      if (filter === "ending-soon") {
-        result = result.filter((p) => p.daysLeft <= 7);
-      } else if (filter === "recently-verified") {
-        result = result.filter((p) => p.score >= 70);
-      }
     }
 
     switch (sort) {
@@ -183,8 +179,8 @@ export default function BrowsePage() {
           .browse-controls { flex-direction: row; align-items: center; }
         }
         .browse-search-input::placeholder { color: var(--color-text-muted); }
-        .browse-search-input:focus { outline: none; border-color: var(--color-accent-blue) !important; }
-        .browse-sort-select:focus { outline: none; border-color: var(--color-accent-blue); }
+        .browse-search-input:focus { outline: none; border-color: var(--color-accent-blue) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-cyan) 18%, transparent); }
+        .browse-sort-select:focus { outline: none; border-color: var(--color-accent-blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-cyan) 18%, transparent); }
         .browse-sort-select option { background-color: var(--color-surface); color: var(--color-text-primary); }
         .browse-sort-wrap { position: relative; flex-shrink: 0; }
         @media (max-width: 639px) {
@@ -242,7 +238,7 @@ export default function BrowsePage() {
               margin: "0 0 0.625rem",
             }}
           >
-            Active Projects
+            {isEndedTab ? "Ended Projects" : "Active Projects"}
           </h1>
 
           <p
@@ -253,7 +249,7 @@ export default function BrowsePage() {
               margin: "0 0 2rem",
             }}
           >
-            Verified by GenLayer Intelligent Contracts
+            Browse verified open source projects and fund the ones you want to help grow.
           </p>
 
           {/* Live stats row */}
@@ -447,7 +443,7 @@ export default function BrowsePage() {
                   margin: 0,
                 }}
               >
-                Unable to load projects. Please try again.
+                We could not load this data right now. Please refresh the page or try again shortly.
               </p>
               <button
                 onClick={refetch}
@@ -459,15 +455,15 @@ export default function BrowsePage() {
                   fontSize: "0.875rem",
                   fontWeight: 600,
                   color: "var(--color-accent-blue)",
-                  backgroundColor: "transparent",
-                  border: "1px solid var(--color-accent-blue)",
+                  backgroundColor: "color-mix(in srgb, var(--color-accent-cyan) 12%, white)",
+                  border: "1px solid color-mix(in srgb, var(--color-accent-cyan) 35%, var(--color-border-subtle))",
                   borderRadius: "8px",
                   padding: "0.625rem 1.25rem",
                   cursor: "pointer",
                 }}
               >
                 <RefreshCw size={14} />
-                Retry
+                Try again
               </button>
             </div>
           )}
@@ -489,8 +485,8 @@ export default function BrowsePage() {
                   width: "64px",
                   height: "64px",
                   borderRadius: "16px",
-                  backgroundColor: "color-mix(in srgb, var(--color-accent-blue) 8%, transparent)",
-                  border: "1px solid color-mix(in srgb, var(--color-accent-blue) 18%, transparent)",
+                  backgroundColor: "var(--color-accent-blue-soft)",
+                  border: "1px solid color-mix(in srgb, var(--color-accent-blue) 20%, var(--color-border-subtle))",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -510,7 +506,7 @@ export default function BrowsePage() {
                     letterSpacing: "-0.02em",
                   }}
                 >
-                  {search.trim() ? "No projects found" : isEndedTab ? "No ended campaigns yet" : "No active projects yet"}
+                  {search.trim() ? "No projects found." : isEndedTab ? "No ended campaigns yet." : "No active projects yet."}
                 </h3>
                 <p
                   style={{
@@ -521,10 +517,10 @@ export default function BrowsePage() {
                   }}
                 >
                   {search.trim()
-                    ? `No results for "${search}"`
+                    ? `No results for "${search}".`
                     : isEndedTab
                     ? "Campaigns will appear here once their duration expires."
-                    : "Be the first to submit your project."}
+                    : "Verified projects will appear here after they are approved."}
                 </p>
               </div>
               <a
@@ -536,13 +532,13 @@ export default function BrowsePage() {
                   fontSize: "0.875rem",
                   fontWeight: 600,
                   color: "var(--color-text-primary)",
-                  backgroundColor: "var(--color-accent-blue)",
+                  backgroundColor: "var(--color-primary)",
                   borderRadius: "8px",
                   padding: "0.625rem 1.25rem",
                   textDecoration: "none",
                 }}
               >
-                Submit Your Project →
+                Submit Project
               </a>
             </div>
           )}
@@ -576,9 +572,9 @@ export default function BrowsePage() {
                       fontFamily: "var(--font-jakarta), system-ui, sans-serif",
                       fontSize: "0.9375rem",
                       fontWeight: 500,
-                      color: "var(--color-accent-blue)",
-                      backgroundColor: "transparent",
-                      border: "1px solid var(--color-accent-blue)",
+                      color: "var(--color-primary-foreground)",
+                      backgroundColor: "var(--color-primary)",
+                      border: "1px solid var(--color-primary)",
                       borderRadius: "8px",
                       padding: "0.75rem 2.5rem",
                       cursor: "pointer",
@@ -586,12 +582,12 @@ export default function BrowsePage() {
                       letterSpacing: "-0.01em",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = "var(--color-accent-blue)";
-                      e.currentTarget.style.color = "var(--color-text-primary)";
+                      e.currentTarget.style.backgroundColor = "var(--color-primary-dark)";
+                      e.currentTarget.style.color = "var(--color-primary-foreground)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = "transparent";
-                      e.currentTarget.style.color = "var(--color-accent-blue)";
+                      e.currentTarget.style.backgroundColor = "var(--color-primary)";
+                      e.currentTarget.style.color = "var(--color-primary-foreground)";
                     }}
                   >
                     Load More Projects
@@ -607,7 +603,7 @@ export default function BrowsePage() {
                     color: "var(--color-text-muted)",
                   }}
                 >
-                  All {filtered.length} projects shown
+                  All {filtered.length} projects are shown.
                 </p>
               ) : null}
             </>

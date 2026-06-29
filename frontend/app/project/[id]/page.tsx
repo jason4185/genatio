@@ -3,22 +3,21 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft, GitFork, ExternalLink, Shield, Flag,
-  Loader2, X, CheckCircle, XCircle,
+  AlertTriangle, ArrowLeft, Clock3, Coins, ExternalLink, Flag,
+  GitFork, HeartHandshake, Loader2, ShieldCheck, Users, Wallet, X, CheckCircle, XCircle,
 } from "lucide-react";
-import { useAccount, useChainId, useSendTransaction, useSwitchChain } from "wagmi";
-import { waitForTransactionReceipt } from "wagmi/actions";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { createClient } from "genlayer-js";
 import { testnetBradbury as glTestnetBradbury } from "genlayer-js/chains";
-import { parseEther } from "viem";
-import { config } from "@/lib/wagmi";
 import type { Address } from "viem";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import { Logo } from "@/components/Logo";
 import ScoreRing from "@/components/ScoreRing";
+import { useCountdown } from "@/hooks/useCountdown";
+import { useFunders } from "@/hooks/useFunders";
 import { useProject } from "@/hooks/useProject";
-import { DISPUTE_CONTRACT } from "@/lib/genatio";
+import { DISPUTE_CONTRACT, EXPLORER_URL, GENATIO_CONTRACT } from "@/lib/genatio";
 
 type FlagPhase = "form" | "submitting" | "pending" | "waiting" | "resolved_invalid" | "resolved_valid";
 
@@ -36,6 +35,26 @@ const FLAG_REASONS = [
 
 function weiToGen(raw: number | string): number {
   return Number(raw) / 1e18;
+}
+
+function formatGenFromWei(raw?: number | string): string {
+  return formatAmount(weiToGen(raw ?? 0));
+}
+
+function parseGenToWei(raw: string): bigint | null {
+  const normalized = raw.trim();
+  if (!normalized || normalized.startsWith("-")) return null;
+  if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
+
+  const [whole, fraction = ""] = normalized.split(".");
+  if (fraction.length > 18) return null;
+
+  const wholeWei = BigInt(whole || "0") * 10n ** 18n;
+  const paddedFraction = (fraction + "0".repeat(18)).slice(0, 18);
+  const fractionWei = BigInt(paddedFraction || "0");
+  const total = wholeWei + fractionWei;
+
+  return total > 0n ? total : null;
 }
 
 function formatAmount(n: number): string {
@@ -68,10 +87,10 @@ function parseReceiptResult(receipt: any): { resolution: "valid" | "invalid"; re
 
   // Handle raw "0" or "1" from new contract format
   if (resultRaw === "1" || resultRaw === 1) {
-    return { resolution: "valid", reason: "Flag confirmed. Project has been removed from Genatio." };
+    return { resolution: "valid", reason: "Report confirmed. The project has been removed from Genatio." };
   }
   if (resultRaw === "0" || resultRaw === 0) {
-    return { resolution: "invalid", reason: "Flag dismissed. Project appears legitimate." };
+    return { resolution: "invalid", reason: "Report reviewed. The project remains listed." };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,7 +104,7 @@ function parseReceiptResult(receipt: any): { resolution: "valid" | "invalid"; re
 
   // Handle JSON {"status": "success", "resolution": "VALID"/"INVALID", "reason": "..."}
   if (!parsed.resolution && !parsed.status) {
-    return { resolution: "invalid", reason: "No resolution this time. Please try flagging again later." };
+    return { resolution: "invalid", reason: "No resolution was available. Please check again shortly." };
   }
 
   const res = String(parsed.resolution ?? "").toUpperCase();
@@ -131,17 +150,17 @@ interface FlagBannerProps {
 function FlagBanner({ type, reason, onDismiss }: FlagBannerProps) {
   const cfg = {
     pending: {
-      text: "Your flag is being investigated by GenLayer Intelligent Contracts",
+      text: "Your report has been submitted for review.",
       icon: <Loader2 size={14} style={{ animation: "spin 1s linear infinite", flexShrink: 0 }} />,
-      accentColor: "var(--color-accent-blue)",
+      accentColor: "var(--color-warning)",
     },
     invalid: {
-      text: "Your flag was reviewed. Project appears legitimate.",
+      text: "Your report was reviewed. The project remains listed.",
       icon: <CheckCircle size={14} style={{ flexShrink: 0 }} />,
       accentColor: "var(--color-success)",
     },
     valid: {
-      text: "Flag confirmed. This project has been removed from Genatio.",
+      text: "Report confirmed. This project has been removed from Genatio.",
       icon: <XCircle size={14} style={{ flexShrink: 0 }} />,
       accentColor: "var(--color-danger)",
     },
@@ -214,16 +233,16 @@ function FlagBanner({ type, reason, onDismiss }: FlagBannerProps) {
 // ── Skeleton / Shimmer ──────────────────────────────────────────────────────
 
 const cardStyle: React.CSSProperties = {
-  backgroundColor: "rgba(var(--color-surface-rgb), 0.7)",
+  backgroundColor: "rgba(var(--color-surface-rgb), 0.94)",
   backdropFilter: "blur(16px)",
   WebkitBackdropFilter: "blur(16px)",
-  border: "1px solid var(--color-border-subtle)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: "12px",
   padding: "1.5rem",
 };
 
 const statBoxStyle: React.CSSProperties = {
-  backgroundColor: "rgba(var(--color-surface-rgb), 0.5)",
+  backgroundColor: "rgba(var(--color-surface-rgb), 0.72)",
   border: "1px solid var(--color-border-subtle)",
   borderRadius: "8px",
   padding: "0.75rem",
@@ -297,7 +316,8 @@ export default function ProjectDetailPage() {
   const [flagPhase, setFlagPhase] = useState<FlagPhase>("form");
 
   const pollInterval = (flagPhase === "waiting" || flagPhase === "pending") ? 5_000 : 30_000;
-  const { project, loading: projectLoading, error: projectError } = useProject(projectId, pollInterval);
+  const { project, loading: projectLoading, error: projectError, refetch: refetchProject } = useProject(projectId, pollInterval);
+  const { funders, loading: fundersLoading, error: fundersError, refetch: refetchFunders } = useFunders(projectId);
   const [flagTxHash, setFlagTxHash] = useState<string | null>(null);
   const [flagResolutionReason, setFlagResolutionReason] = useState("");
   const [flagError, setFlagError] = useState<string | null>(null);
@@ -311,6 +331,12 @@ export default function ProjectDetailPage() {
   const isOwnProject =
     !!address && !!project?.wallet &&
     address.toLowerCase() === project.wallet.toLowerCase();
+  const raisedGen = weiToGen(project?.raised_gen ?? 0);
+  const goalGen = weiToGen(project?.goal_gen ?? 0);
+  const donorCount = Number(project?.donor_count ?? 0);
+  const countdown = useCountdown(project?.created_at, project?.duration_days);
+  const fundingProgress = goalGen > 0 ? Math.min(100, (raisedGen / goalGen) * 100) : 0;
+  const donorCountLabel = `${donorCount} ${donorCount === 1 ? "donor" : "donors"}`;
 
   // Fund modal state
   const [fundModalOpen, setFundModalOpen] = useState(false);
@@ -321,7 +347,6 @@ export default function ProjectDetailPage() {
 
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
-  const { sendTransactionAsync } = useSendTransaction();
 
   const closeFundModal = () => {
     if (fundPhase === "submitting" || fundPhase === "pending") return;
@@ -333,80 +358,77 @@ export default function ProjectDetailPage() {
   };
 
   const handleSendGen = async () => {
-    if (!address || !project?.wallet || !fundAmount || Number(fundAmount) <= 0) return;
+    const weiAmount = parseGenToWei(fundAmount);
+    if (!address || !projectId || !project?.wallet || !weiAmount) {
+      setFundError("Enter a valid GEN amount. GEN amount can include up to 18 decimal places.");
+      return;
+    }
     setFundPhase("submitting");
     setFundError(null);
 
-    console.log('Current chainId:', chainId);
-    console.log('Target chainId:', 4221);
-
-    // FIX 1: ensure correct network before sending
     if (chainId !== 4221) {
       try {
         await switchChainAsync({ chainId: 4221 });
-        console.log('Chain switch result, new chainId:', chainId);
       } catch {
-        setFundError("Please switch to GenLayer Bradbury network in your wallet.");
+        setFundError("Switch your wallet to the GenLayer Bradbury network, then try again.");
         setFundPhase("form");
         return;
       }
     }
 
-    console.log('Sending transaction:', {
-      to: project.wallet,
-      value: fundAmount,
-      chainId: 4221,
+    const glClient = createClient({
+      chain: glTestnetBradbury,
+      account: address,
     });
 
     let hash: string;
     try {
-      const result = await sendTransactionAsync({
-        to: project.wallet as `0x${string}`,
-        value: parseEther(fundAmount),
-        chainId: 4221,
+      const result = await glClient.writeContract({
+        address: GENATIO_CONTRACT as Address,
+        functionName: "fund_project",
+        args: [projectId],
+        value: weiAmount,
       });
       hash = String(result);
-      console.log('Transaction hash returned:', hash);
-      console.log('Hash type:', typeof hash);
     } catch (err: unknown) {
-      console.error('Full error object:', err);
-      console.error('Error message:', err instanceof Error ? err.message : String(err));
       const errMsg = (err instanceof Error ? err.message : String(err)).toLowerCase();
       if (errMsg.includes("user rejected") || errMsg.includes("rejected the request")) {
-        setFundError("Transaction cancelled.");
+        setFundError("Transaction was declined in your wallet.");
       } else if (errMsg.includes("insufficient funds") || errMsg.includes("insufficient balance")) {
-        setFundError("Insufficient GEN balance. Please add funds to your wallet.");
+        setFundError("Your wallet does not have enough GEN to complete this transaction.");
+      } else if (errMsg.includes("project not found")) {
+        setFundError("We could not find this project on the current contract.");
+      } else if (errMsg.includes("project not accepting funds")) {
+        setFundError("This project is not accepting funding right now.");
+      } else if (errMsg.includes("no gen sent")) {
+        setFundError("Amount must be greater than 0.");
       } else {
-        setFundError("Transaction failed. Please try again.");
+        setFundError("Funding transaction could not be completed. Please check your wallet, network, and GEN balance, then try again.");
       }
       setFundPhase("form");
       return;
     }
 
-    // FIX 2: wait for on-chain confirmation before showing success
     setFundTxHash(hash);
     setFundPhase("pending");
 
-    console.log('Waiting for receipt on chainId:', 4221);
-
     try {
-      const receipt = await waitForTransactionReceipt(config, {
-        hash: hash as `0x${string}`,
-        chainId: 4221,
-        timeout: 60_000,
-        pollingInterval: 3_000,
+      await (glClient as unknown as {
+        waitForTransactionReceipt: (args: {
+          hash: string;
+          status: "ACCEPTED";
+          pollingInterval: number;
+        }) => Promise<unknown>;
+      }).waitForTransactionReceipt({
+        hash,
+        status: "ACCEPTED",
+        pollingInterval: 5_000,
       });
-
-      if (receipt.status === "success") {
+        await refetchProject(false);
+        await refetchFunders(false);
         setFundPhase("success");
-      } else {
-        setFundError("Transaction failed on-chain. Please try again.");
-        setFundPhase("form");
-      }
     } catch (err: unknown) {
-      console.error('Full error object:', err);
-      console.error('Error message:', err instanceof Error ? err.message : String(err));
-      setFundError("Could not confirm transaction. Check the explorer with your transaction hash.");
+      setFundError("We could not confirm the transaction yet. Please use the transaction link to check its status.");
       setFundPhase("form");
     }
   };
@@ -470,15 +492,15 @@ export default function ProjectDetailPage() {
     } catch (err: unknown) {
       const errMsg = (err instanceof Error ? err.message : String(err)).toLowerCase();
       if (errMsg.includes("user rejected") || errMsg.includes("rejected the request")) {
-        setFlagError("Transaction cancelled.");
+        setFlagError("Transaction was declined in your wallet.");
       } else if (errMsg.includes("insufficient funds") || errMsg.includes("insufficient balance")) {
-        setFlagError("Insufficient GEN balance. Please add funds to your wallet.");
+        setFlagError("Your wallet does not have enough GEN to complete this transaction.");
       } else if (errMsg.includes("reverted") || errMsg.includes("execution failed")) {
-        setFlagError("Transaction failed. Please try again.");
+        setFlagError("Report could not be submitted. Please review your selection and try again.");
       } else if (errMsg.includes("failed to fetch") || errMsg.includes("network error")) {
-        setFlagError("Unable to connect. Please check your internet connection and try again.");
+        setFlagError("We could not connect to the network. Please check your connection and try again.");
       } else {
-        setFlagError("Something went wrong. Please try again.");
+        setFlagError("Report could not be submitted. Please try again shortly.");
       }
       setFlagPhase("form");
     }
@@ -505,11 +527,11 @@ export default function ProjectDetailPage() {
       if (keepWaitingActiveRef.current) {
         const errMsg = (err instanceof Error ? err.message : String(err)).toLowerCase();
         if (errMsg.includes("timed out") || errMsg.includes("timeout")) {
-          setFlagError("Investigation is taking longer than expected. Please check back in a few minutes.");
+          setFlagError("Review is taking longer than expected. Please check back in a few minutes.");
         } else if (errMsg.includes("failed to fetch") || errMsg.includes("network error")) {
-          setFlagError("Unable to connect. Please check your internet connection and try again.");
+          setFlagError("We could not connect to the network. Please check your connection and try again.");
         } else {
-          setFlagError("Something went wrong checking the status. Please try again.");
+          setFlagError("We could not refresh the report status. Please try again shortly.");
         }
         setFlagPhase("pending");
       }
@@ -676,7 +698,7 @@ export default function ProjectDetailPage() {
               }}
             >
               <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "1.125rem", fontWeight: 700, color: "var(--color-text-primary)", margin: 0 }}>
-                Project not found
+                We could not find this project.
               </p>
               <p style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: "0.8125rem", color: "var(--color-text-muted)", margin: 0 }}>
                 {projectError}
@@ -699,7 +721,7 @@ export default function ProjectDetailPage() {
                 }}
               >
                 <ArrowLeft size={14} />
-                Back to Browse
+                Browse Projects
               </a>
             </div>
           )}
@@ -711,10 +733,10 @@ export default function ProjectDetailPage() {
           {!projectLoading && !projectError && !project && (
             <div style={{ ...cardStyle, textAlign: "center", padding: "4rem 2rem", display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
               <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "1.125rem", fontWeight: 700, color: "var(--color-text-primary)", margin: 0 }}>
-                Project not found
+                We could not find this project.
               </p>
               <a href="/browse" style={{ color: "var(--color-accent-blue)", fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", display: "inline-flex", alignItems: "center", gap: "0.375rem", textDecoration: "none" }}>
-                <ArrowLeft size={14} /> Back to Browse
+                <ArrowLeft size={14} /> Browse Projects
               </a>
             </div>
           )}
@@ -725,22 +747,54 @@ export default function ProjectDetailPage() {
               {/* ── LEFT COLUMN ─────────────────────────────────── */}
               <div className="project-left" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
 
-                {/* Title + external links */}
-                <div>
-                  <h1
-                    style={{
-                      fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-                      fontSize: "clamp(1.75rem, 4vw, 2.5rem)",
-                      fontWeight: 700,
-                      color: "var(--color-text-primary)",
-                      letterSpacing: "-0.03em",
-                      lineHeight: 1.15,
-                      margin: "0 0 1rem",
-                    }}
-                  >
-                    {project.title}
-                  </h1>
-                  <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}>
+                {/* Project header */}
+                <div style={cardStyle}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1.25rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+                    <div style={{ flex: 1, minWidth: "240px" }}>
+                      <h1
+                        style={{
+                          fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+                          fontSize: "clamp(1.75rem, 4vw, 2.5rem)",
+                          fontWeight: 700,
+                          color: "var(--color-text-primary)",
+                          letterSpacing: "-0.03em",
+                          lineHeight: 1.15,
+                          margin: "0 0 0.875rem",
+                        }}
+                      >
+                        {project.title}
+                      </h1>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                        <span
+                          style={{
+                            fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+                            fontSize: "0.6875rem",
+                            fontWeight: 700,
+                            color: statusColor,
+                            letterSpacing: "0.08em",
+                            border: `1px solid ${statusBorderColor}`,
+                            borderRadius: "100px",
+                            padding: "0.25rem 0.875rem",
+                          }}
+                        >
+                          {project.status}
+                        </span>
+                        <span
+                          style={{
+                            fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+                            fontSize: "0.75rem",
+                            color: "var(--color-text-muted)",
+                          }}
+                        >
+                          Score {Number(project.score) || 0}/100
+                        </span>
+                      </div>
+                    </div>
+
+                    <ScoreRing score={Number(project.score) || 0} size={92} />
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
                     {project.github_repo_url && (
                       <a href={project.github_repo_url} target="_blank" rel="noopener noreferrer" className="ext-link">
                         <GitFork size={14} />
@@ -753,31 +807,6 @@ export default function ProjectDetailPage() {
                         {project.live_url.replace(/^https?:\/\//, "")}
                       </a>
                     )}
-                  </div>
-                </div>
-
-                {/* Score ring + status */}
-                <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
-                  <ScoreRing score={Number(project.score) || 0} size={100} />
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    <span
-                      style={{
-                        fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-                        fontSize: "0.6875rem",
-                        fontWeight: 700,
-                        color: statusColor,
-                        letterSpacing: "0.08em",
-                        border: `1px solid ${statusBorderColor}`,
-                        borderRadius: "100px",
-                        padding: "0.25rem 0.875rem",
-                        alignSelf: "flex-start",
-                      }}
-                    >
-                      {project.status}
-                    </span>
-                    <span style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-                      GenLayer Score
-                    </span>
                   </div>
                 </div>
 
@@ -815,6 +844,73 @@ export default function ProjectDetailPage() {
                   </div>
                 )}
 
+                <div style={cardStyle}>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "1rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+                    <p className="section-eyebrow" style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+                      <HeartHandshake size={14} color="var(--color-primary)" />
+                      Recent Donors
+                    </p>
+                    <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+                      Latest funding activity
+                    </span>
+                  </div>
+
+                  {/* TODO: Full donor history requires a deployed contract that exposes get_funders(project_id). */}
+                  {funders.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                      {funders.map((funder, index) => (
+                        <div
+                          key={`${funder.wallet}-${funder.timestamp}-${index}`}
+                          style={{ ...statBoxStyle, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", backgroundColor: "var(--color-surface)", borderColor: "color-mix(in srgb, var(--color-primary) 18%, var(--color-border-subtle))" }}
+                        >
+                          <div>
+                            <span style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-primary)", display: "block", marginBottom: "0.25rem" }}>
+                              {truncateAddress(funder.wallet)}
+                            </span>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-accent-cyan)" }}>
+                            <Coins size={12} />
+                            {formatGenFromWei(funder.amount_gen)} GEN
+                          </span>
+                          </div>
+                          <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+                            {new Date(funder.timestamp).toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : project.last_donor ? (
+                    <div style={{ ...statBoxStyle, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", backgroundColor: "var(--color-surface)", borderColor: "color-mix(in srgb, var(--color-primary) 18%, var(--color-border-subtle))" }}>
+                      <div>
+                        <span style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-primary)", display: "block", marginBottom: "0.25rem" }}>
+                          {truncateAddress(project.last_donor)}
+                        </span>
+                        <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+                          Latest donor
+                        </span>
+                      </div>
+                      <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+                        Recently
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ ...statBoxStyle, textAlign: "center" }}>
+                      <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0 }}>
+                        No donors yet. Be the first to fund this project.
+                      </p>
+                    </div>
+                  )}
+                  {!funders.length && fundersError && (
+                    <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)", margin: "0.75rem 0 0" }}>
+                      Full donor history will appear when available.
+                    </p>
+                  )}
+                  {fundersLoading && (
+                    <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)", margin: "0.75rem 0 0" }}>
+                      Loading donor history...
+                    </p>
+                  )}
+                </div>
+
               </div>
 
               {/* ── RIGHT COLUMN ─────────────────────────────────── */}
@@ -822,34 +918,114 @@ export default function ProjectDetailPage() {
 
                 {/* Fund Card */}
                 <div style={cardStyle}>
-                  <p className="section-eyebrow">Support This Project</p>
-
-                  <div style={{ marginBottom: "1.25rem" }}>
-                    <span
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "1.25rem" }}>
+                    <div
                       style={{
-                        fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-                        fontSize: "1.625rem",
-                        fontWeight: 700,
-                        color: "var(--color-text-primary)",
-                        letterSpacing: "-0.02em",
-                        display: "block",
-                        lineHeight: 1.1,
+                        width: "30px",
+                        height: "30px",
+                        borderRadius: "8px",
+                        backgroundColor: "var(--color-accent-blue-soft)",
+                        border: "1px solid color-mix(in srgb, var(--color-accent-blue) 18%, transparent)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
                       }}
                     >
-                      {formatAmount(weiToGen(project.goal_gen))} GEN
-                    </span>
-                    <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)" }}>
-                      funding goal
-                    </span>
+                      <HeartHandshake size={15} color="var(--color-accent-blue)" />
+                    </div>
+                    <p className="section-eyebrow" style={{ margin: 0 }}>
+                      Support this project
+                    </p>
                   </div>
 
-                  <div style={{ ...statBoxStyle, marginBottom: "1rem" }}>
-                    <span style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: "0.8125rem", color: "var(--color-text-primary)", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>
-                      {truncateAddress(project.wallet ?? "")}
-                    </span>
-                    <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-                      GEN sends directly to creator&apos;s wallet
-                    </span>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.75rem", marginBottom: "1rem" }}>
+                    <div style={{ ...statBoxStyle, padding: "0.875rem" }}>
+                      <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)", display: "block", marginBottom: "0.375rem" }}>
+                        Goal
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+                          fontSize: "1.125rem",
+                          fontWeight: 700,
+                          color: "var(--color-text-primary)",
+                          letterSpacing: "0",
+                        }}
+                      >
+                        {formatAmount(goalGen)} GEN
+                      </span>
+                    </div>
+                    <div style={{ ...statBoxStyle, padding: "0.875rem" }}>
+                      <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)", display: "block", marginBottom: "0.375rem" }}>
+                        Raised
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+                          fontSize: "1.125rem",
+                          fontWeight: 700,
+                          color: "var(--color-accent-cyan)",
+                          letterSpacing: "0",
+                        }}
+                      >
+                        {formatAmount(raisedGen)} GEN
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ ...statBoxStyle, marginBottom: "1.125rem", display: "flex", alignItems: "flex-start", gap: "0.75rem", padding: "0.875rem", backgroundColor: "var(--color-accent-blue-soft)", borderColor: "color-mix(in srgb, var(--color-accent-blue) 18%, var(--color-border-subtle))" }}>
+                    <Wallet size={16} color="var(--color-accent-blue)" style={{ marginTop: "0.125rem", flexShrink: 0 }} />
+                    <div style={{ minWidth: 0 }}>
+                      <span style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: "0.8125rem", color: "var(--color-text-primary)", fontWeight: 700, display: "block", marginBottom: "0.25rem", overflowWrap: "anywhere" }}>
+                        {truncateAddress(project.wallet ?? "")}
+                      </span>
+                      <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", lineHeight: 1.45, color: "var(--color-text-muted)", display: "block" }}>
+                        Funds are forwarded to the creator wallet after finalization.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: "1.125rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", marginBottom: "0.625rem" }}>
+                      <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-secondary)", fontWeight: 600 }}>
+                        Funding progress
+                      </span>
+                      <span style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: "0.8125rem", color: "var(--color-text-primary)", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                        {Math.round(fundingProgress)}%
+                      </span>
+                    </div>
+                    <div style={{ width: "100%", height: "10px", borderRadius: "999px", backgroundColor: "var(--color-elevated)", overflow: "hidden", border: "1px solid var(--color-border-subtle)" }}>
+                      <div
+                        style={{
+                          width: `${fundingProgress}%`,
+                          height: "100%",
+                          backgroundColor: "var(--color-primary)",
+                          borderRadius: "999px",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
+                    <div style={{ ...statBoxStyle, minHeight: "96px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
+                      <Clock3 size={15} color="var(--color-accent-blue)" />
+                      <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.6875rem", color: "var(--color-text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                        Days left
+                      </span>
+                      <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", lineHeight: 1.25, color: "var(--color-text-primary)", fontWeight: 700 }}>
+                        {countdown.label}
+                      </span>
+                    </div>
+                    <div style={{ ...statBoxStyle, minHeight: "96px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
+                      <Users size={15} color="var(--color-accent-blue)" />
+                      <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.6875rem", color: "var(--color-text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                        Donors
+                      </span>
+                      <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", lineHeight: 1.25, color: "var(--color-text-primary)", fontWeight: 700 }}>
+                        {donorCountLabel}
+                      </span>
+                    </div>
                   </div>
 
                   <button
@@ -859,28 +1035,32 @@ export default function ProjectDetailPage() {
                       fontFamily: "var(--font-jakarta), system-ui, sans-serif",
                       fontSize: "0.9375rem",
                       fontWeight: 600,
-                      color: (!isConnected || isOwnProject) ? "var(--color-text-muted)" : "var(--color-text-primary)",
-                      backgroundColor: (!isConnected || isOwnProject) ? "var(--color-elevated)" : "var(--color-accent-blue)",
-                      border: "none",
+                      color: (!isConnected || isOwnProject) ? "var(--color-text-muted)" : "var(--color-primary-foreground)",
+                      backgroundColor: (!isConnected || isOwnProject) ? "var(--color-elevated)" : "var(--color-primary)",
+                      border: (!isConnected || isOwnProject) ? "1px solid var(--color-border-subtle)" : "1px solid transparent",
                       borderRadius: "10px",
                       padding: "0.875rem 1rem",
                       cursor: (!isConnected || isOwnProject) ? "not-allowed" : "pointer",
                       width: "100%",
                       letterSpacing: "-0.01em",
-                      opacity: (!isConnected || isOwnProject) ? 0.5 : 1,
+                      opacity: (!isConnected || isOwnProject) ? 0.72 : 1,
                       transition: "opacity 0.2s ease",
+                      textAlign: "center",
                     }}
                   >
-                    Fund This Project →
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", justifyContent: "center", width: "100%" }}>
+                      {!isOwnProject && <HeartHandshake size={16} />}
+                      {isOwnProject ? "You cannot fund your own project." : "Fund Project"}
+                    </span>
                   </button>
                   {!isConnected && (
                     <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)", margin: "0.625rem 0 0", textAlign: "center" }}>
-                      Connect wallet to fund
+                      Connect your wallet to fund this project.
                     </p>
                   )}
                   {isConnected && isOwnProject && (
                     <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)", margin: "0.625rem 0 0", textAlign: "center" }}>
-                      Cannot fund your own project
+                      You cannot fund your own project.
                     </p>
                   )}
                 </div>
@@ -893,15 +1073,15 @@ export default function ProjectDetailPage() {
                         width: "30px",
                         height: "30px",
                         borderRadius: "8px",
-                        backgroundColor: "color-mix(in srgb, var(--color-success) 12%, transparent)",
-                        border: "1px solid color-mix(in srgb, var(--color-success) 20%, transparent)",
+                        backgroundColor: "var(--color-accent-blue-soft)",
+                        border: "1px solid color-mix(in srgb, var(--color-accent-blue) 18%, transparent)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         flexShrink: 0,
                       }}
                     >
-                      <Shield size={15} color="var(--color-success)" />
+                      <ShieldCheck size={15} color="var(--color-accent-blue)" />
                     </div>
                     <p className="section-eyebrow" style={{ margin: 0 }}>Verification</p>
                   </div>
@@ -922,7 +1102,7 @@ export default function ProjectDetailPage() {
                           style={{
                             fontFamily: mono ? "var(--font-jetbrains), ui-monospace, monospace" : "var(--font-jakarta), system-ui, sans-serif",
                             fontSize: "0.8125rem",
-                            color: highlight ? "var(--color-success)" : "var(--color-text-primary)",
+                            color: highlight ? "var(--color-accent-blue)" : "var(--color-text-primary)",
                             fontWeight: highlight ? 700 : 500,
                             textAlign: "right",
                           }}
@@ -939,11 +1119,11 @@ export default function ProjectDetailPage() {
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
                     <Flag size={13} color="var(--color-danger)" />
                     <p className="section-eyebrow" style={{ margin: 0, color: "var(--color-danger)" }}>
-                      Flag this project
+                      Report this project
                     </p>
                   </div>
                   <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-secondary)", margin: "0 0 1rem", lineHeight: 1.6 }}>
-                    Report suspicious activity, misleading claims, or policy violations.
+                    Report misleading claims, unavailable proof, or policy concerns for review.
                   </p>
                   <button
                     disabled={!isConnected || isOwnProject}
@@ -970,16 +1150,16 @@ export default function ProjectDetailPage() {
                       e.currentTarget.style.backgroundColor = "transparent";
                     }}
                   >
-                    Flag Project
+                    Report Project
                   </button>
                   {!isConnected && (
                     <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)", margin: "0.625rem 0 0", textAlign: "center" }}>
-                      Connect wallet to flag
+                      Connect your wallet to report this project.
                     </p>
                   )}
                   {isConnected && isOwnProject && (
                     <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)", margin: "0.625rem 0 0", textAlign: "center" }}>
-                      Cannot flag your own project
+                      You cannot report your own project.
                     </p>
                   )}
                 </div>
@@ -1098,45 +1278,52 @@ export default function ProjectDetailPage() {
             {/* Submitting */}
             {fundPhase === "submitting" && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "1.5rem 0", textAlign: "center" }}>
-                <Loader2 size={28} color="var(--color-accent-blue)" style={{ animation: "spin 1s linear infinite" }} />
+                <AlertTriangle size={28} color="var(--color-warning)" />
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-text-primary)", margin: 0 }}>
-                  Confirm in your wallet
+                  Submitting funding transaction...
                 </p>
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6 }}>
-                  Sending GEN directly to creator&apos;s wallet...
+                  Please confirm the transaction in your wallet.
                 </p>
+                <div style={{ padding: "0.75rem 1rem", backgroundColor: "color-mix(in srgb, var(--color-accent-cyan) 22%, white)", border: "1px solid color-mix(in srgb, var(--color-accent-cyan) 45%, var(--color-border-subtle))", borderRadius: "8px" }}>
+                  <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-secondary)", margin: 0 }}>
+                    GEN is delivered to the creator after finalization, usually within 20-30 minutes.
+                  </p>
+                </div>
               </div>
             )}
 
             {/* Pending — waiting for on-chain confirmation */}
             {fundPhase === "pending" && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "1.5rem 0", textAlign: "center" }}>
-                <Loader2 size={28} color="var(--color-accent-blue)" style={{ animation: "spin 1s linear infinite" }} />
+                <AlertTriangle size={28} color="var(--color-warning)" />
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-text-primary)", margin: 0 }}>
-                  Confirming transaction...
+                  Refreshing funding status...
                 </p>
                 {fundTxHash && (
                   <a
-                    href={`https://explorer.testnet-chain.genlayer.com/tx/${fundTxHash}`}
+                    href={`${EXPLORER_URL}/tx/${fundTxHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
                       fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
                       fontSize: "0.75rem",
-                      color: "var(--color-accent-blue)",
+                      color: "var(--color-warning)",
                       textDecoration: "none",
-                      backgroundColor: "var(--color-elevated)",
-                      border: "1px solid var(--color-border-subtle)",
+                      backgroundColor: "color-mix(in srgb, var(--color-accent-cyan) 18%, white)",
+                      border: "1px solid color-mix(in srgb, var(--color-accent-cyan) 45%, var(--color-border-subtle))",
                       borderRadius: "6px",
                       padding: "0.25rem 0.625rem",
                     }}
                   >
-                    {truncateHash(fundTxHash)} ↗
+                    View transaction
                   </a>
                 )}
-                <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-muted)", margin: 0, lineHeight: 1.6 }}>
-                  Waiting for the transaction to be included on-chain...
-                </p>
+                <div style={{ padding: "0.75rem 1rem", backgroundColor: "color-mix(in srgb, var(--color-accent-cyan) 22%, white)", border: "1px solid color-mix(in srgb, var(--color-accent-cyan) 45%, var(--color-border-subtle))", borderRadius: "8px" }}>
+                  <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6 }}>
+                    Project funding data is refreshing. Final delivery to the creator will complete after finalization.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -1158,11 +1345,14 @@ export default function ProjectDetailPage() {
                   <CheckCircle size={22} color="var(--color-success)" />
                 </div>
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-success)", margin: 0 }}>
-                  Sent! Your support means a lot to {project?.title}.
+                  Funding transaction accepted.
+                </p>
+                <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-muted)", margin: 0, lineHeight: 1.6 }}>
+                  Your contribution has been recorded. GEN will be delivered to the project creator after finalization, which usually takes 20-30 minutes.
                 </p>
                 {fundTxHash && (
                   <a
-                    href={`https://explorer.testnet-chain.genlayer.com/tx/${fundTxHash}`}
+                    href={`${EXPLORER_URL}/tx/${fundTxHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
@@ -1170,13 +1360,13 @@ export default function ProjectDetailPage() {
                       fontSize: "0.75rem",
                       color: "var(--color-accent-blue)",
                       textDecoration: "none",
-                      backgroundColor: "var(--color-elevated)",
-                      border: "1px solid var(--color-border-subtle)",
+                      backgroundColor: "color-mix(in srgb, var(--color-accent-cyan) 14%, white)",
+                      border: "1px solid color-mix(in srgb, var(--color-accent-cyan) 35%, var(--color-border-subtle))",
                       borderRadius: "6px",
                       padding: "0.25rem 0.625rem",
                     }}
                   >
-                    {truncateHash(fundTxHash)} ↗
+                    View transaction
                   </a>
                 )}
                 <button
@@ -1186,7 +1376,7 @@ export default function ProjectDetailPage() {
                     fontSize: "0.875rem",
                     fontWeight: 600,
                     color: "var(--color-text-primary)",
-                    backgroundColor: "var(--color-elevated)",
+                    backgroundColor: "var(--color-surface-soft)",
                     border: "1px solid var(--color-border-subtle)",
                     borderRadius: "8px",
                     padding: "0.625rem 1.5rem",
@@ -1194,7 +1384,7 @@ export default function ProjectDetailPage() {
                     marginTop: "0.25rem",
                   }}
                 >
-                  Close
+                  Done
                 </button>
               </div>
             )}
@@ -1208,7 +1398,28 @@ export default function ProjectDetailPage() {
                     {truncateAddress(project?.wallet ?? "")}
                   </span>
                   <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-                    GEN sends directly to this wallet
+                    GEN is delivered to this creator wallet after finalization.
+                  </span>
+                </div>
+
+                <div style={{ ...statBoxStyle, marginBottom: "1rem", backgroundColor: "color-mix(in srgb, var(--color-accent-cyan) 18%, white)", border: "1px solid color-mix(in srgb, var(--color-accent-cyan) 40%, var(--color-border-subtle))" }}>
+                  <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-secondary)", margin: 0 }}>
+                    GEN is delivered to the creator after finalization, usually within 20-30 minutes.
+                  </p>
+                </div>
+
+                <div style={{ ...statBoxStyle, marginBottom: "1rem" }}>
+                  <span style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.75rem", color: "var(--color-text-muted)", display: "block", marginBottom: "0.375rem" }}>
+                    Project funding summary
+                  </span>
+                  <span style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: "0.8125rem", color: "var(--color-text-primary)", display: "block", marginBottom: "0.25rem" }}>
+                    Raised: {formatGenFromWei(project?.raised_gen)} GEN
+                  </span>
+                  <span style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: "0.8125rem", color: "var(--color-text-primary)", display: "block", marginBottom: "0.25rem" }}>
+                    Donors: {Number(project?.donor_count ?? 0)}
+                  </span>
+                  <span style={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: "0.8125rem", color: "var(--color-text-primary)", display: "block" }}>
+                    Last donor: {project?.last_donor ? truncateAddress(project.last_donor) : "None yet"}
                   </span>
                 </div>
 
@@ -1244,8 +1455,8 @@ export default function ProjectDetailPage() {
                     marginBottom: "1rem",
                     outline: "none",
                   }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-accent-blue)"; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-border-subtle)"; }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-accent-blue)"; e.currentTarget.style.boxShadow = "0 0 0 3px color-mix(in srgb, var(--color-accent-blue) 12%, transparent)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-border-subtle)"; e.currentTarget.style.boxShadow = "none"; }}
                 />
 
                 {fundError && (
@@ -1276,23 +1487,23 @@ export default function ProjectDetailPage() {
                   </button>
                   <button
                     onClick={handleSendGen}
-                    disabled={!fundAmount || Number(fundAmount) <= 0}
+                    disabled={!parseGenToWei(fundAmount)}
                     style={{
                       flex: 2,
                       fontFamily: "var(--font-jakarta), system-ui, sans-serif",
                       fontSize: "0.875rem",
                       fontWeight: 600,
-                      color: "var(--color-text-primary)",
-                      backgroundColor: (!fundAmount || Number(fundAmount) <= 0) ? "var(--color-elevated)" : "var(--color-accent-blue)",
+                      color: !parseGenToWei(fundAmount) ? "var(--color-text-primary)" : "var(--color-primary-foreground)",
+                      backgroundColor: !parseGenToWei(fundAmount) ? "var(--color-elevated)" : "var(--color-primary)",
                       border: "none",
                       borderRadius: "8px",
                       padding: "0.625rem 1rem",
-                      cursor: (!fundAmount || Number(fundAmount) <= 0) ? "not-allowed" : "pointer",
-                      opacity: (!fundAmount || Number(fundAmount) <= 0) ? 0.5 : 1,
+                      cursor: !parseGenToWei(fundAmount) ? "not-allowed" : "pointer",
+                      opacity: !parseGenToWei(fundAmount) ? 0.5 : 1,
                       transition: "opacity 0.2s ease",
                     }}
                   >
-                    Send GEN →
+                    Fund Project
                   </button>
                 </div>
               </>
@@ -1363,7 +1574,7 @@ export default function ProjectDetailPage() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                Flag this project
+                Report this project
               </h2>
             </div>
 
@@ -1372,10 +1583,10 @@ export default function ProjectDetailPage() {
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "1.5rem 0", textAlign: "center" }}>
                 <Loader2 size={28} color="var(--color-accent-blue)" style={{ animation: "spin 1s linear infinite" }} />
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-text-primary)", margin: 0 }}>
-                  Confirm in your wallet
+                  Submit report
                 </p>
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6 }}>
-                  Submitting flag to GenLayer Intelligent Contracts... This may take 2–5 minutes
+                  Please confirm the report transaction in your wallet.
                 </p>
               </div>
             )}
@@ -1399,7 +1610,7 @@ export default function ProjectDetailPage() {
                     <Loader2 size={22} color="var(--color-accent-blue)" style={{ animation: "spin 1s linear infinite" }} />
                   </div>
                   <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-text-primary)", margin: 0 }}>
-                    GenLayer Intelligent Contracts are investigating...
+                    Report submitted
                   </p>
                   {flagTxHash && (
                     <span
@@ -1417,7 +1628,7 @@ export default function ProjectDetailPage() {
                     </span>
                   )}
                   <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6 }}>
-                    This takes 2–5 minutes. You can close this page and check back.
+                    Your report has been submitted for review. This may take a few minutes.
                   </p>
                 </div>
 
@@ -1445,7 +1656,7 @@ export default function ProjectDetailPage() {
                       cursor: "pointer",
                     }}
                   >
-                    Close and check later
+                    Check later
                   </button>
                   <button
                     onClick={handleKeepWaiting}
@@ -1473,10 +1684,10 @@ export default function ProjectDetailPage() {
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "1.5rem 0", textAlign: "center" }}>
                 <Loader2 size={28} color="var(--color-accent-blue)" style={{ animation: "spin 1s linear infinite" }} />
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-text-primary)", margin: 0 }}>
-                  Waiting for consensus...
+                  Review in progress
                 </p>
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6 }}>
-                  GenLayer validators are reaching a decision. This may take a few minutes.
+                  GenLayer validators are reviewing the report. This may take a few minutes.
                 </p>
               </div>
             )}
@@ -1499,7 +1710,7 @@ export default function ProjectDetailPage() {
                   <CheckCircle size={22} color="var(--color-success)" />
                 </div>
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-success)", margin: 0 }}>
-                  Flag dismissed. Project appears legitimate.
+                  Report reviewed. The project remains listed.
                 </p>
                 {flagResolutionReason && (
                   <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6 }}>
@@ -1521,7 +1732,7 @@ export default function ProjectDetailPage() {
                     marginTop: "0.5rem",
                   }}
                 >
-                  Close
+                  Done
                 </button>
               </div>
             )}
@@ -1544,7 +1755,7 @@ export default function ProjectDetailPage() {
                   <XCircle size={22} color="var(--color-danger)" />
                 </div>
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-danger)", margin: 0 }}>
-                  Flag confirmed. This project has been removed from Genatio.
+                  Report confirmed. This project has been removed from Genatio.
                 </p>
                 {flagResolutionReason && (
                   <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6 }}>
@@ -1566,7 +1777,7 @@ export default function ProjectDetailPage() {
                     marginTop: "0.5rem",
                   }}
                 >
-                  Close
+                  Done
                 </button>
               </div>
             )}
@@ -1575,12 +1786,12 @@ export default function ProjectDetailPage() {
             {flagPhase === "form" && (
               !isConnected ? (
                 <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.9rem", color: "var(--color-text-secondary)", margin: 0, lineHeight: 1.6, textAlign: "center", padding: "1rem 0" }}>
-                  Connect your wallet to flag projects.
+                  Connect your wallet to report projects.
                 </p>
               ) : (
                 <>
                   <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.8125rem", color: "var(--color-text-secondary)", margin: "0 0 1.125rem", lineHeight: 1.55 }}>
-                    Select all that apply:
+                    Select all reasons that apply:
                   </p>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem", marginBottom: "1.25rem" }}>
@@ -1677,7 +1888,7 @@ export default function ProjectDetailPage() {
                       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                     >
                       <Flag size={13} />
-                      Submit Flag
+                      Submit report
                     </button>
                   </div>
                 </>

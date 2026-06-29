@@ -13,6 +13,8 @@ interface Project {
   status: string;
   score: number;
   goal_gen: number | string;
+  raised_gen?: number | string;
+  donor_count?: number | string;
   created_at: string | number;
   duration_days: string | number;
   wallet?: string;
@@ -105,28 +107,28 @@ function StatusBadge({ status }: { status: string }) {
 const FLAG_STATUS_CONFIG = {
   VALID: {
     label: "VALID",
-    text: "Flag confirmed. Project removed.",
+    text: "Report confirmed. Project removed.",
     color: "var(--color-danger)",
     bg: "color-mix(in srgb, var(--color-danger) 8%, transparent)",
     border: "color-mix(in srgb, var(--color-danger) 25%, transparent)",
   },
   INVALID: {
     label: "INVALID",
-    text: "Flag dismissed. Project appears legitimate.",
+    text: "Report reviewed. Project remains listed.",
     color: "var(--color-success)",
     bg: "color-mix(in srgb, var(--color-success) 8%, transparent)",
     border: "color-mix(in srgb, var(--color-success) 25%, transparent)",
   },
   PENDING: {
     label: "PENDING",
-    text: "Under investigation",
+    text: "Under review",
     color: "var(--color-accent-blue)",
     bg: "color-mix(in srgb, var(--color-accent-blue) 8%, transparent)",
     border: "color-mix(in srgb, var(--color-accent-blue) 25%, transparent)",
   },
   NONE: {
     label: "NO RESOLUTION",
-    text: "No resolution this time.",
+    text: "No resolution available yet.",
     color: "var(--color-warning)",
     bg: "color-mix(in srgb, var(--color-warning) 8%, transparent)",
     border: "color-mix(in srgb, var(--color-warning) 25%, transparent)",
@@ -205,6 +207,15 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
           {st === "ENDED" && "Campaign ended"}
           {st === "DISPUTED" && "Under community review"}
         </span>
+        <span
+          style={{
+            fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+            fontSize: "0.8125rem",
+            color: "var(--color-text-secondary)",
+          }}
+        >
+          Raised {Number(project.raised_gen ?? 0) / 1e18} GEN · {Number(project.donor_count ?? 0)} donors
+        </span>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
@@ -237,7 +248,7 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
           onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-accent-blue) 8%, transparent)")}
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
         >
-          View <ExternalLink size={12} />
+          View Project <ExternalLink size={12} />
         </a>
       </div>
     </motion.div>
@@ -333,7 +344,7 @@ function RejectedProjectCard({ project, index }: { project: RejectedProject; ind
         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-accent-blue) 8%, transparent)")}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
       >
-        <RefreshCw size={12} /> Resubmit
+        <RefreshCw size={12} /> Try again
       </a>
     </motion.div>
   );
@@ -417,7 +428,7 @@ function FlagCard({ flag, index }: { flag: FlagResult; index: number }) {
               textTransform: "uppercase",
             }}
           >
-            Reasons flagged
+            Report reasons
           </span>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
             {reasons.map((r, i) => (
@@ -614,7 +625,7 @@ function DashboardContent() {
             margin: 0,
           }}
         >
-          Connect your wallet to view your dashboard
+          Connect your wallet to view your dashboard.
         </p>
         <ConnectButton />
       </motion.div>
@@ -622,6 +633,9 @@ function DashboardContent() {
   }
 
   const initialLoading = projectsLoading || flagsLoading || rejectedLoading;
+  const activeProjects = myProjects.filter((p) => (p.status ?? "").toUpperCase() === "ACTIVE");
+  const endedProjects = myProjects.filter((p) => (p.status ?? "").toUpperCase() === "ENDED");
+  const disputedProjects = myProjects.filter((p) => (p.status ?? "").toUpperCase() === "DISPUTED");
 
   if (initialLoading) {
     return (
@@ -633,12 +647,12 @@ function DashboardContent() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
-      {/* ── My Projects ── */}
+      {/* ── My Active Projects ── */}
       <section>
-        <SectionHeading>My Projects</SectionHeading>
+        <SectionHeading>My Active Projects</SectionHeading>
 
         <AnimatePresence mode="wait">
-          {myProjects.length === 0 ? (
+          {activeProjects.length === 0 ? (
             <motion.div
               key="no-projects"
               initial={{ opacity: 0 }}
@@ -667,7 +681,7 @@ function DashboardContent() {
                     margin: "0 0 0.375rem",
                   }}
                 >
-                  No projects yet
+                  No projects found for this wallet.
                 </p>
                 <p
                   style={{
@@ -677,7 +691,7 @@ function DashboardContent() {
                     margin: 0,
                   }}
                 >
-                  Submit an open source project to get verified on-chain.
+                  Projects you submit will appear here after they are recorded on-chain.
                 </p>
               </div>
               <a
@@ -696,7 +710,7 @@ function DashboardContent() {
                 onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
                 onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
               >
-                Submit Your Project →
+                Submit Project
               </a>
             </motion.div>
           ) : (
@@ -707,7 +721,7 @@ function DashboardContent() {
               transition={{ duration: 0.2 }}
               style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
             >
-              {myProjects.map((p, i) => (
+              {activeProjects.map((p, i) => (
                 <ProjectCard key={p.id} project={p} index={i} />
               ))}
             </motion.div>
@@ -729,10 +743,68 @@ function DashboardContent() {
         )}
       </section>
 
-      {/* ── Not Approved ── */}
+      {/* ── My Ended Projects ── */}
+      <section>
+        <SectionHeading>My Ended Projects</SectionHeading>
+        <AnimatePresence mode="wait">
+          {endedProjects.length === 0 ? (
+            <motion.div
+              key="no-ended"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              style={{
+                backgroundColor: "rgba(var(--color-surface-rgb), 0.8)",
+                border: "1px solid var(--color-border-subtle)",
+                borderRadius: "12px",
+                padding: "2rem 1.5rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "1rem",
+              }}
+            >
+              <Clock size={18} color="var(--color-text-muted)" strokeWidth={1.5} />
+              <p style={{ fontFamily: "var(--font-jakarta), system-ui, sans-serif", fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0 }}>
+                No ended projects for this wallet yet.
+              </p>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="ended-list"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
+              style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+            >
+              {endedProjects.map((p, i) => (
+                <ProjectCard key={p.id} project={p} index={i} />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
+
+      {/* ── My Flags / Disputes ── */}
+      {disputedProjects.length > 0 && (
+        <section>
+          <SectionHeading>My Reports / Disputes</SectionHeading>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
+            style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "0.75rem" }}
+          >
+            {disputedProjects.map((p, i) => (
+              <ProjectCard key={p.id} project={p} index={i} />
+            ))}
+          </motion.div>
+        </section>
+      )}
+
+      {/* ── My Rejected Projects ── */}
       {rejectedProjects.length > 0 && (
         <section>
-          <SectionHeading>Not Approved</SectionHeading>
+          <SectionHeading>Projects Not Approved</SectionHeading>
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -750,7 +822,7 @@ function DashboardContent() {
       <section>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
           <Flag size={14} color="var(--color-danger)" />
-          <SectionHeading>My Flags</SectionHeading>
+          <SectionHeading>My Reports</SectionHeading>
         </div>
 
         <AnimatePresence mode="wait">
@@ -779,7 +851,7 @@ function DashboardContent() {
                   margin: 0,
                 }}
               >
-                You have not flagged any projects yet.
+                You have not reported any projects yet.
               </p>
             </motion.div>
           ) : (

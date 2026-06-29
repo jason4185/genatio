@@ -19,7 +19,8 @@ export default function ScoreRing({ score, size = 80 }: ScoreRingProps) {
 
   const clamped = Math.max(0, Math.min(100, score));
   const dashOffset = CIRC * (1 - clamped / 100);
-  const strokeColor = clamped >= 80 ? "var(--color-success)" : "var(--color-accent-blue)";
+  const strokeColor =
+    clamped >= 80 ? "var(--color-accent-blue)" : clamped >= 60 ? "var(--color-primary)" : "var(--color-accent-cyan)";
 
   return (
     <svg

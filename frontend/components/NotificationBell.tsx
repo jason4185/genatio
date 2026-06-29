@@ -19,8 +19,8 @@ function FlagItem({
   const isValid = flag.resolution === "VALID";
   const accentColor = isValid ? "var(--color-danger)" : "var(--color-success)";
   const text = isValid
-    ? `Flag confirmed — "${flag.projectTitle}" has been removed`
-    : `Flag reviewed — "${flag.projectTitle}" appears legitimate`;
+    ? `Report confirmed. "${flag.projectTitle}" has been removed.`
+    : `Report reviewed. "${flag.projectTitle}" remains listed.`;
 
   return (
     <div
@@ -102,8 +102,8 @@ function SubmissionItem({
   const isApproved = notif.type === "approved";
   const accentColor = isApproved ? "var(--color-success)" : "var(--color-danger)";
   const text = isApproved
-    ? `"${notif.title}" was approved — Score ${notif.score}/100`
-    : `"${notif.title}" was not approved — Score ${notif.score}/100`;
+    ? `"${notif.title}" was approved with a score of ${notif.score}/100.`
+    : `"${notif.title}" did not meet the verification threshold. Score ${notif.score}/100.`;
 
   return (
     <div
@@ -166,7 +166,7 @@ function SubmissionItem({
                 textDecoration: "none",
               }}
             >
-              View project →
+              View Project
             </a>
           )}
           {!isApproved && (
@@ -179,7 +179,7 @@ function SubmissionItem({
                 textDecoration: "none",
               }}
             >
-              Resubmit →
+              Try again
             </a>
           )}
         </div>

@@ -1,17 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Coins, ShieldCheck, Users } from "lucide-react";
 
 function StatRow({
   base,
   label,
   duration,
   isLast,
+  format,
+  Icon,
 }: {
   base: number;
   label: string;
   duration: number;
   isLast: boolean;
+  format?: (value: number) => string;
+  Icon: React.ElementType;
 }) {
   const [displayed, setDisplayed] = useState(0);
   const rafRef = useRef<number>(0);
@@ -35,37 +40,57 @@ function StatRow({
   return (
     <div
       style={{
-        padding: "1.75rem 2rem",
+        padding: "1rem",
         borderBottom: isLast ? "none" : "1px solid var(--color-border-subtle)",
-        flex: 1,
         display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: "0.875rem",
+        justifyContent: "flex-start",
       }}
     >
-      <p
+      <div
         style={{
-          fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-          fontSize: "clamp(1.25rem, 2.5vw, 1.5rem)",
-          fontWeight: 700,
-          color: "var(--color-text-primary)",
-          margin: "0 0 0.25rem",
-          letterSpacing: "-0.03em",
-          fontVariantNumeric: "tabular-nums",
-        } as React.CSSProperties}
-      >
-        {displayed.toLocaleString("en-US")}
-      </p>
-      <p
-        style={{
-          fontFamily: "var(--font-jakarta), system-ui, sans-serif",
-          fontSize: "0.875rem",
-          color: "var(--color-text-secondary)",
-          margin: 0,
+          width: "38px",
+          height: "38px",
+          borderRadius: "10px",
+          backgroundColor: "var(--color-accent-blue-soft)",
+          border: "1px solid color-mix(in srgb, var(--color-accent-blue) 18%, var(--color-border-subtle))",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--color-accent-blue)",
+          flexShrink: 0,
         }}
       >
-        {label}
-      </p>
+        <Icon size={18} />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <p
+          style={{
+            fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
+            fontSize: "1.25rem",
+            fontWeight: 700,
+            color: "var(--color-text-primary)",
+            margin: "0 0 0.125rem",
+            letterSpacing: "0",
+            fontVariantNumeric: "tabular-nums",
+          } as React.CSSProperties}
+        >
+          {format ? format(displayed) : displayed.toLocaleString("en-US")}
+        </p>
+        <p
+          style={{
+            fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+            fontSize: "0.8125rem",
+            fontWeight: 600,
+            color: "var(--color-text-secondary)",
+            margin: 0,
+          }}
+        >
+          {label}
+        </p>
+      </div>
     </div>
   );
 }
@@ -74,59 +99,62 @@ function SkeletonRow({ isLast }: { isLast: boolean }) {
   return (
     <div
       style={{
-        padding: "1.75rem 2rem",
+        padding: "1rem",
         borderBottom: isLast ? "none" : "1px solid var(--color-border-subtle)",
-        flex: 1,
         display: "flex",
-        flexDirection: "column",
-        gap: "0.5rem",
-        justifyContent: "center",
+        alignItems: "center",
+        gap: "0.875rem",
       }}
     >
       <div
         style={{
-          height: "1.75rem",
-          width: "60%",
-          borderRadius: "6px",
+          width: "38px",
+          height: "38px",
+          borderRadius: "10px",
           backgroundColor: "var(--color-elevated)",
           animation: "skeleton-shimmer 1.5s ease-in-out infinite",
+          flexShrink: 0,
         }}
       />
-      <div
-        style={{
-          height: "0.875rem",
-          width: "80%",
-          borderRadius: "4px",
-          backgroundColor: "var(--color-elevated)",
-          animation: "skeleton-shimmer 1.5s ease-in-out infinite",
-        }}
-      />
+      <div style={{ flex: 1 }}>
+        <div
+          style={{
+            height: "1.25rem",
+            width: "44%",
+            borderRadius: "6px",
+            backgroundColor: "var(--color-elevated)",
+            animation: "skeleton-shimmer 1.5s ease-in-out infinite",
+            marginBottom: "0.5rem",
+          }}
+        />
+        <div
+          style={{
+            height: "0.8125rem",
+            width: "70%",
+            borderRadius: "4px",
+            backgroundColor: "var(--color-elevated)",
+            animation: "skeleton-shimmer 1.5s ease-in-out infinite",
+          }}
+        />
+      </div>
     </div>
   );
 }
 
 export function LiveStatsCard({
   totalProjects,
-  recentlyVerified,
+  totalDonors,
+  totalRaisedGen,
   loading,
 }: {
   totalProjects: number;
-  recentlyVerified?: number;
+  totalDonors: number;
+  totalRaisedGen: number;
   loading: boolean;
 }) {
   return (
     <>
       <style>{`
-        @keyframes card-glow {
-          0%, 100% {
-            box-shadow: none;
-            border-color: var(--color-border-subtle);
-          }
-          50% {
-            box-shadow: 0 0 28px 4px color-mix(in srgb, var(--color-accent-blue) 13%, transparent);
-            border-color: color-mix(in srgb, var(--color-accent-blue) 38%, transparent);
-          }
-        }
         @keyframes skeleton-shimmer {
           0%, 100% { opacity: 0.5; }
           50% { opacity: 1; }
@@ -138,52 +166,43 @@ export function LiveStatsCard({
           display: "flex",
           flexDirection: "column",
           flex: 1,
-          backgroundColor: "rgba(var(--color-surface-rgb), 0.7)",
+          backgroundColor: "rgba(var(--color-surface-rgb), 0.9)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
-          border: "1px solid var(--color-border-subtle)",
-          borderRadius: "16px",
+          border: "1px solid var(--color-border-strong)",
+          borderRadius: "12px",
           overflow: "hidden",
-          animation: "card-glow 5s ease-in-out infinite",
+          boxShadow: "0 16px 36px rgba(0, 0, 0, 0.08)",
         }}
       >
-        {/* LIVE header */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "0.5rem",
-            padding: "0.625rem 2rem",
+            justifyContent: "space-between",
+            gap: "0.75rem",
+            padding: "1rem 1rem 0.875rem",
             borderBottom: "1px solid var(--color-border-subtle)",
-            backgroundColor: "color-mix(in srgb, var(--color-success) 4%, transparent)",
+            backgroundColor: "rgba(var(--color-surface-rgb), 0.72)",
           }}
         >
           <span
             style={{
-              width: "6px",
-              height: "6px",
-              borderRadius: "50%",
-              backgroundColor: "var(--color-success)",
-              display: "block",
-              flexShrink: 0,
-              animation: "pulse-live 1.4s ease-in-out infinite",
-            }}
-          />
-          <span
-            style={{
-              fontFamily: "var(--font-jetbrains), ui-monospace, monospace",
-              fontSize: "0.6875rem",
+              fontFamily: "var(--font-jakarta), system-ui, sans-serif",
+              fontSize: "0.9375rem",
               fontWeight: 700,
-              color: "var(--color-success)",
-              letterSpacing: "0.12em",
+              color: "var(--color-text-primary)",
+              letterSpacing: "0",
             }}
           >
-            LIVE
+            Live platform stats
           </span>
+          <ShieldCheck size={17} color="var(--color-accent-blue)" />
         </div>
 
         {loading ? (
           <>
+            <SkeletonRow isLast={false} />
             <SkeletonRow isLast={false} />
             <SkeletonRow isLast={true} />
           </>
@@ -193,15 +212,26 @@ export function LiveStatsCard({
               key={`projects-${totalProjects}`}
               base={totalProjects}
               label="Projects Verified"
-              duration={1500}
+              duration={1200}
               isLast={false}
+              Icon={ShieldCheck}
             />
             <StatRow
-              key={`recent-${recentlyVerified ?? 0}`}
-              base={recentlyVerified ?? 0}
-              label="Verified Last 7 Days"
+              key={`donors-${totalDonors}`}
+              base={totalDonors}
+              label="Total Donors"
+              duration={1200}
+              isLast={false}
+              Icon={Users}
+            />
+            <StatRow
+              key={`raised-${totalRaisedGen}`}
+              base={totalRaisedGen}
+              label="Total GEN Raised"
               duration={1200}
               isLast={true}
+              format={(value) => `${value.toLocaleString("en-US")} GEN`}
+              Icon={Coins}
             />
           </>
         )}

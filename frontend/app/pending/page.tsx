@@ -101,13 +101,13 @@ function WaitingStatus({ startTime }: { startTime: number }) {
   let message: string;
   let color: string;
   if (minutes < 2) {
-    message = "This takes 2–5 minutes";
+    message = "GenLayer is reviewing your project. This may take a few minutes.";
     color = "var(--color-text-muted)";
   } else if (minutes < 5) {
-    message = "Still verifying... taking a bit longer than usual";
+    message = "Verification is still in progress.";
     color = "var(--color-accent-blue)";
   } else {
-    message = "Taking longer than expected. You can close this tab and check My Dashboard later.";
+    message = "Verification is taking longer than usual. You can return to your dashboard and check again shortly.";
     color = "var(--color-text-secondary)";
   }
 
@@ -184,7 +184,7 @@ function PendingContent() {
         }
 
         if (parsed.status === "error") {
-          setError(parsed.reason || "Something went wrong. Please try again.");
+          setError("Project submission could not be completed. Please review your project details and try again.");
           setPhase("error");
           return;
         }
@@ -204,10 +204,10 @@ function PendingContent() {
             const res = await fetch(`/api/rejected?wallet=${address}&bust=${Date.now()}`);
             const list = await res.json() as { title: string; reason: string }[];
             const match = list.find((p) => p.title.toLowerCase() === title.toLowerCase());
-            const reason = match?.reason || "Your project did not meet the minimum verification threshold of 40 points required for listing on Genatio.";
+            const reason = match?.reason || "Project did not meet the verification threshold. Review the feedback and try again with stronger project evidence.";
             params.set("reason", reason);
           } catch {
-            params.set("reason", "Your project did not meet the minimum verification threshold of 40 points required for listing on Genatio.");
+            params.set("reason", "Project did not meet the verification threshold. Review the feedback and try again with stronger project evidence.");
           }
         }
 
@@ -303,7 +303,7 @@ function PendingContent() {
                   margin: 0,
                 }}
               >
-                Verifying {title}
+                Submitting project for verification
               </h1>
               <p
                 style={{
@@ -314,7 +314,7 @@ function PendingContent() {
                   lineHeight: 1.6,
                 }}
               >
-                GenLayer Intelligent Contracts are reviewing your project
+                GenLayer is reviewing your project. This may take a few minutes.
               </p>
             </div>
 
@@ -373,7 +373,7 @@ function PendingContent() {
                 lineHeight: 1.55,
               }}
             >
-              Keep this tab open to see your result. If you close it, check My Dashboard in 5 minutes.
+              Keep this tab open to see the result, or return to your dashboard and check again shortly.
             </div>
 
             <div style={{ display: "flex", gap: "1rem", justifyContent: "center", width: "100%" }}>
@@ -400,7 +400,7 @@ function PendingContent() {
                   e.currentTarget.style.color = "var(--color-text-secondary)";
                 }}
               >
-                Go to Dashboard →
+                Go to Dashboard
               </button>
               <button
                 onClick={() => router.push("/")}
@@ -425,7 +425,7 @@ function PendingContent() {
                   e.currentTarget.style.color = "var(--color-text-secondary)";
                 }}
               >
-                Go Home
+                Return Home
               </button>
             </div>
           </motion.div>
@@ -469,7 +469,7 @@ function PendingContent() {
                   margin: 0,
                 }}
               >
-                Project Submitted
+                Project submission accepted.
               </h1>
               <p
                 style={{
@@ -481,7 +481,7 @@ function PendingContent() {
                   maxWidth: "380px",
                 }}
               >
-                Your project has been submitted to GenLayer Intelligent Contracts. Check your Dashboard in a few minutes to see the verification result.
+                Your project data has been submitted for verification. Check your dashboard in a few minutes for the result.
               </p>
             </div>
 
@@ -536,7 +536,7 @@ function PendingContent() {
                   margin: 0,
                 }}
               >
-                Project Verified!
+                Project verified.
               </h1>
               <p
                 style={{
@@ -547,7 +547,7 @@ function PendingContent() {
                   lineHeight: 1.6,
                 }}
               >
-                Redirecting to your results...
+                Redirecting to your verification result...
               </p>
             </div>
           </motion.div>
@@ -591,7 +591,7 @@ function PendingContent() {
                   margin: 0,
                 }}
               >
-                Submission Error
+                Submission could not be completed
               </h1>
               <p
                 style={{
@@ -627,7 +627,7 @@ function PendingContent() {
                 letterSpacing: "-0.01em",
               }}
             >
-              Go Back and Fix
+              Try again
             </motion.button>
           </motion.div>
         )}

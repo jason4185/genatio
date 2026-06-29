@@ -1,17 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createClient } from "genlayer-js";
-import { testnetBradbury } from "genlayer-js/chains";
-import { GENATIO_CONTRACT } from "@/lib/genatio";
+import { useState, useEffect, useCallback } from "react";
 import { getCached, setCached, FUNDERS_TTL } from "@/lib/contractCache";
-import type { Address } from "viem";
-
-const client = createClient({ chain: testnetBradbury });
 
 export interface Funder {
-  address: string;
-  amount: number | string;
+  project_id: string;
+  wallet: string;
+  amount_gen: number | string;
   timestamp: string;
 }
 
@@ -35,50 +30,43 @@ export function useFunders(projectId: string | null) {
   const [loading, setLoading] = useState(!!projectId);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchFunders = useCallback(async (isInitial = false) => {
     if (!projectId) {
       setFunders([]);
       setLoading(false);
       return;
     }
 
-    let cancelled = false;
-    setLoading(true);
+    if (isInitial) setLoading(true);
 
     const cacheKey = `get_funders:${projectId}`;
-    const cached = getCached(cacheKey);
-    if (cached !== null) {
-      if (!cancelled) {
+    if (isInitial) {
+      const cached = getCached(cacheKey);
+      if (cached !== null) {
         setFunders(parseFunders(cached));
         setError(null);
         setLoading(false);
+        return;
       }
-      return () => { cancelled = true; };
     }
 
-    client
-      .readContract({
-        address: GENATIO_CONTRACT as Address,
-        functionName: "get_funders",
-        args: [projectId],
-      })
-      .then((result) => {
-        if (cancelled) return;
-        setCached(cacheKey, result, FUNDERS_TTL);
-        setFunders(parseFunders(result));
-        setError(null);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load funders");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => { cancelled = true; };
+    try {
+      const res = await fetch(`/api/funders/${encodeURIComponent(projectId)}`);
+      if (!res.ok) throw new Error("server_error");
+      const result = await res.json();
+      setCached(cacheKey, result, FUNDERS_TTL);
+      setFunders(parseFunders(result));
+      setError(null);
+    } catch {
+      setError("Full donor history will appear when available.");
+    } finally {
+      setLoading(false);
+    }
   }, [projectId]);
 
-  return { funders, loading, error };
+  useEffect(() => {
+    fetchFunders(true);
+  }, [fetchFunders]);
+
+  return { funders, loading, error, refetch: fetchFunders };
 }

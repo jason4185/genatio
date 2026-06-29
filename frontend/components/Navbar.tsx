@@ -52,7 +52,7 @@ export default function Navbar() {
         right: 0,
         zIndex: 50,
         borderBottom: scrolled ? "1px solid var(--color-border-subtle)" : "1px solid transparent",
-        backgroundColor: scrolled ? "rgba(var(--color-background-rgb), 0.88)" : "transparent",
+        backgroundColor: scrolled ? "rgba(var(--color-background-rgb), 0.92)" : "transparent",
         backdropFilter: scrolled ? `blur(${blurAmount}px)` : "none",
         WebkitBackdropFilter: scrolled ? `blur(${blurAmount}px)` : "none",
         transition: "border-color 0.3s ease, background-color 0.3s ease",
@@ -85,7 +85,7 @@ export default function Navbar() {
           transition: filter 0.2s ease;
         }
         .connect-glow:hover {
-          filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent-blue) 35%, transparent));
+          filter: drop-shadow(0 8px 18px color-mix(in srgb, var(--color-accent-blue) 20%, transparent));
         }
       `}</style>
 
@@ -239,10 +239,10 @@ export default function Navbar() {
                 bottom: 0,
                 width: "min(300px, 82vw)",
                 zIndex: 50,
-                backgroundColor: "rgba(var(--color-surface-rgb), 0.97)",
+                backgroundColor: "rgba(var(--color-surface-rgb), 0.98)",
                 backdropFilter: "blur(24px)",
                 WebkitBackdropFilter: "blur(24px)",
-                borderLeft: "1px solid var(--color-border-subtle)",
+                borderLeft: "1px solid var(--color-border-strong)",
                 padding: "5rem 1.75rem 2rem",
                 display: "flex",
                 flexDirection: "column",
