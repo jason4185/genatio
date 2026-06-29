@@ -1,209 +1,495 @@
 # Genatio
 
-Genatio is a trustless grant discovery and funding app for open source builders, built entirely on GenLayer Bradbury. Every project submitted to Genatio is verified by a GenLayer Intelligent Contract through Optimistic Democracy — five independent validators fetch live GitHub evidence, score the project, and reach consensus on-chain. No human reviews, approves, or rejects anything. Once verified, the project goes live and donors send GEN directly to the builder's wallet. Genatio never custodies funds. It only verifies truth and lets the community act on it.
+Genatio is a GenLayer-powered verified open source grants and crowdfunding platform.
 
-**Live Demo:** https://genatio.xyz
+Genatio helps open source builders raise GEN from supporters after their project is verified by a GenLayer Intelligent Contract.
+
+Genatio is a verified growth platform for open source builders. Projects are reviewed by a GenLayer Intelligent Contract using GitHub, live project, story, and funding-purpose evidence before they can receive community funding.
+
+---
+
+## Live Demo
+
+Genatio is built for GenLayer Bradbury Testnet.
+
+Current contracts:
+
+| Contract | Address | Explorer |
+| --- | --- | --- |
+| Main Genatio contract | `0x9b759C76bCB3e0ACB9Df28dD57575F5c371d2E95` | [View contract](https://explorer-bradbury.genlayer.com/address/0x9b759C76bCB3e0ACB9Df28dD57575F5c371d2E95) |
+| Genatio Dispute contract | `0xd39820b6d9F55231B14e55336AAeeF8a50a61562` | [View contract](https://explorer-bradbury.genlayer.com/address/0xd39820b6d9F55231B14e55336AAeeF8a50a61562) |
+
+Network: GenLayer Bradbury Testnet
+
+Explorer: [https://explorer-bradbury.genlayer.com](https://explorer-bradbury.genlayer.com)
+
+## What Genatio Checks
+
+Genatio checks whether an open source project has enough public evidence to be listed for community funding.
+
+The main contract evaluates:
+
+1. Language check
+2. GitHub repository exists and is public
+3. Commit activity
+4. README or repository description quality
+5. License presence
+6. Repository age
+7. Funding purpose specificity
+8. Project story quality
+9. Community engagement
+10. Live URL accessibility
+11. Project consistency
+
+Projects with a score of `40` or higher become active campaigns. Projects below that threshold are stored in `rejected` and are not listed as active.
+
+### How the Live Flow Works
+
+Live workflow:
+
+1. A builder connects a wallet.
+2. The builder submits a title, story, GitHub repository, live URL, funding purpose, GEN goal, and campaign duration.
+3. The Genatio Intelligent Contract runs project verification through GenLayer's leader/validator workflow.
+4. Approved projects are stored as active campaigns.
+5. Supporters fund active projects through the payable `fund_project` method.
+6. The frontend reads project, funding, donor, and dispute state back from GenLayer-backed routes and contract calls.
+
+The current testnet release keeps validator checks lightweight to reduce timeout risk, while the leader performs the full Genatio project scoring.
 
 ---
 
 ## The Vision
 
-Open source funding today is slow, gatekept, and opaque. Grant committees decide who gets funded based on subjective judgment, personal networks, and closed-door reviews. Genatio removes that layer entirely. An Intelligent Contract reads your GitHub repository, what your project is about, and your funding purpose, and reaches a verifiable on-chain verdict — the same way for every builder, every time. If your project is real and your code is real, you get listed. If your project is fraudulent, the community can flag it and a second Intelligent Contract investigates using the same evidence-based pipeline. Genatio is what happens when grant evaluation is handed to a transparent, consensus-driven machine instead of a committee.
+Open source builders need practical ways to fund continued development. Supporters need better proof before contributing to a project.
+
+Genatio adds an evidence-based verification step before crowdfunding. It uses GenLayer Intelligent Contracts to review public project evidence and store the outcome in contract state.
+
+The goal is not to overclaim security or replace all human judgment. The goal is to make open source funding pages more structured, transparent, and evidence-aware before supporters contribute GEN.
 
 ---
 
-## What it does
+## What Genatio Is
 
-- GenLayer Intelligent Contracts verify every project submission through Optimistic Democracy
-- Five independent validators fetch GitHub data and score projects on-chain
-- Donors send GEN directly to the verified builder's wallet — Genatio never holds funds
-- Suspicious projects can be flagged and re-investigated by a dispute Intelligent Contract automatically
-- Every rejected submission is stored on-chain with a clear reason, and can be resubmitted after fixes
+Genatio is a verified open source funding platform built on GenLayer.
+
+It follows a focused funding path:
+
+```text
+Project Evidence -> GenLayer Verification -> Active Campaign -> GEN Contribution -> Finalized Payout
+```
+
+- **Project Evidence:** Builder-submitted title, story, GitHub repository, live URL, funding purpose, goal, and duration.
+- **GenLayer Verification:** The Intelligent Contract checks repository, activity, live URL, story, and funding-purpose evidence.
+- **Active Campaign:** Projects that meet the score threshold are listed for supporters.
+- **GEN Contribution:** Supporters submit payable `fund_project` transactions.
+- **Finalized Payout:** The contract emits value transfer to the creator wallet, and creator payout completes after finalization.
 
 ---
 
-## Key Innovation & Technical Pillars
+## Current App Status
 
-**Custom Validator Consensus**
-Instead of requiring all 5 validators to independently re-run expensive web fetches and AI calls, only the leader does the full evaluation. The remaining validators receive the leader's result and run a lightweight `validator_fn` that cross-checks it against minimal independent evidence — keeping consensus fast while staying trustless. A wrong leader result gets rejected.
+Genatio currently supports an end-to-end Bradbury Testnet funding flow: a builder can submit a project, wait for GenLayer verification, appear as an active campaign if approved, receive supporter contributions through `fund_project`, and view wallet-scoped project state from the dashboard.
 
-**Storage Boundary Discipline**
-GenLayer requires all storage reads to happen before a nondet (AI/web) call, and all writes to happen after. Violating this causes a silent GenVM crash — no error, just an empty return value. This was hit multiple times across both contracts (blacklist reads, ID generation, project lookups occurring after nondet calls) and fixed by systematically auditing and reordering every read and write.
+Current working pieces include:
 
-**Deterministic Flag Resolution**
-AI naturally produces varied phrasing, which made validators disagree on whether to accept a leader's verdict. This was solved by having the AI return exactly `"0"` or `"1"` — the most deterministic output possible — then mapping that to a VALID/INVALID resolution and human-readable reason afterward in contract logic.
+- project submission with GenLayer verification
+- active and rejected project storage
+- payable GEN funding through the main Intelligent Contract
+- funding state updates for `raised_gen`, `donor_count`, and `last_donor`
+- donor history through `donations` and `get_funders(project_id)`
+- project detail and funding views
+- wallet-scoped dashboard
+- report and dispute flow through a separate Genatio Dispute contract
+- Vercel-ready frontend configuration
 
-**Direct Peer-to-Peer Funding**
-GEN no longer flows through the contract. Donors send GEN directly to the verified creator wallet. The contract's role is strictly limited to verification — it never custodies funds, removing EOA-transfer complexity and Bradbury value-transfer dependency entirely.
+Genatio is still a testnet application, but the core project verification and funding path is in place.
 
-**Persistent On-Chain Rejection Memory**
-Rejected submissions are stored in a dedicated `rejected` TreeMap with the AI's score and reasoning, visible on the builder's dashboard. Rejected titles can be reused, allowing a builder to fix their GitHub repository and resubmit under the same project name without being permanently blocked.
+---
 
-**On-Chain Dispute Resolution**
-A second Intelligent Contract, GenatioDispute, independently re-fetches fresh GitHub evidence when a project is flagged and reaches its own consensus verdict — fully decoupled from the original verification, so a project cannot hide behind a stale approval.
+## What It Does
 
-**Smart Adaptive Polling**
-The frontend polls every 5 seconds only while a transaction is actively pending, falling back to 30 second background polling everywhere else — keeping the UI responsive during critical moments without overloading Bradbury's RPC.
+Genatio lets a builder submit an open source project for verification and, if approved, receive community funding with GEN.
 
-**Server-Side Caching Layer**
-Every API route caches Bradbury reads for 8-15 seconds server-side, so frontend polling hits the cache instead of the RPC directly — protecting against rate limits while keeping data fresh within seconds.
+The app shows:
 
-**Pre-Flight Validation**
-Before a user signs a transaction, the frontend checks for duplicate titles and active project limits by reading contract state directly. If a submission would fail, the user sees an instant error — no wasted gas, no wasted validator compute on a guaranteed rejection.
+- verified active campaigns
+- project verification score
+- project story and funding purpose
+- funding goal and raised amount
+- donor count and latest donor
+- donor history when available
+- wallet-scoped submitted projects
+- rejected project state
+- report and dispute outcomes
+
+Funding and donor state are backed by the current Genatio contracts.
+
+---
+
+## Key Innovations
+
+### 1. Verification Before Funding
+
+Genatio does not list every submitted campaign by default. The main contract runs `_verify_campaign` before a project can become active.
+
+### 2. GenLayer-Native Review Path
+
+The review flow uses GenLayer nondeterministic execution. The leader gathers project evidence and proposes a score, while the validator checks that the returned score is valid.
+
+### 3. On-Chain Campaign Storage
+
+Campaigns are stored in the main contract. Active campaigns, rejected submissions, funding fields, and donor history are readable by the frontend.
+
+### 4. Wallet-Scoped Dashboard
+
+The dashboard uses wallet identity to show a builder's submitted projects, rejected projects, and reports without presenting the app as a global admin console.
+
+### 5. Structured Funding Records
+
+Funding updates are stored as structured project fields and donation records. `get_funders(project_id)` returns project donor history.
+
+### 6. Focused Testnet Validator Language
+
+Genatio avoids presenting validator behavior as broader than it is. In the current testnet flow, the leader performs full scoring and the lightweight validator checks score shape and range.
+
+---
+
+## Technical Pillars
+
+### GenLayer Intelligent Contract Backend
+
+The Genatio backend is made of two Python Intelligent Contracts:
+
+- `contract/Genatio.py` for submission, verification, campaign storage, funding, donor history, and dispute callbacks
+- `contract/GenatioDispute.py` for project reports, dispute review, flag history, and dispute blacklist state
+
+### Leader and Validator Review
+
+`submit_project` calls `_verify_campaign`. `_verify_campaign` parses the GitHub owner and repository from `github_repo_url`.
+
+The leader:
+
+- fetches GitHub repository data with `gl.nondet.web.get`
+- fetches commit history with `gl.nondet.web.get`
+- renders the live URL with `gl.nondet.web.render` when provided
+- calls `gl.nondet.exec_prompt` with `response_format="json"`
+- receives `score`, `strengths`, and `weaknesses`
+- extracts and normalizes the score to `0-100`
+
+Projects with `score >= 40` become active. Projects below `40` are stored in `rejected`.
+
+The lightweight validator only checks that the leader returned a valid score from `0` to `100`.
+
+### Minimal, Focused Schema
+
+Genatio stores contract data as JSON strings with compact fields.
+
+Main project records include:
+
+- `id`
+- `wallet`
+- `title`
+- `story`
+- `goal_gen`
+- `duration_days`
+- `github_repo_url`
+- `live_url`
+- `funding_purpose`
+- `status`
+- `score`
+- `created_at`
+- funding fields such as `raised_gen`, `donor_count`, and `last_donor` after contributions
+
+Donation records include:
+
+- `project_id`
+- `wallet`
+- `amount_gen`
+- `timestamp`
+
+### Frontend Audit Workspace
+
+The frontend is built with:
+
+- Next.js
+- TypeScript
+- GenLayer JS client
+- Wagmi wallet integration
+- RainbowKit wallet connection UI
+- WalletConnect-compatible wallet flow through RainbowKit
+- dashboard and project pages
+- Vercel deployment
+
+### Wallet-Scoped Audit Retrieval
+
+Genatio uses wallet addresses to scope builder and reporter views. The dashboard loads projects and rejected submissions associated with the connected wallet, and report history can be read with `get_my_flags(wallet)`.
+
+Project, funding, donor, and dispute state come from contract-backed reads and API routes. The frontend does not use browser `localStorage` or `sessionStorage` for project, funding, donor, or dispute state. Theme preference may be stored by the theme library only.
+
+### Production-Oriented UX
+
+Genatio keeps accepted transaction state separate from final delivery. Supporter contributions are recorded on-chain, and creator payout completes after finalization, usually within 20-30 minutes.
+
+Funding is implemented by `fund_project(project_id)`, which is marked as `@gl.public.write.payable`. The contribution amount comes from `gl.message.value`. The contract rejects zero-value payments with `gl.vm.UserError("No GEN sent")`, reads the creator wallet from `project["wallet"]`, records funding state, and emits a value transfer.
+
+The contract uses this recipient interface:
+
+```python
+@gl.evm.contract_interface
+class _Recipient:
+    class View:
+        pass
+
+    class Write:
+        pass
+```
+
+The value transfer is emitted with:
+
+```python
+_Recipient(Address(creator_wallet)).emit_transfer(value=amount)
+```
+
+`fund_project` updates `raised_gen`, `donor_count`, and `last_donor`, then appends a donation record with `project_id`, `wallet`, `amount_gen`, and `timestamp`. `get_funders(project_id)` returns donor history for a project.
+
+Reports are handled by `flag_project(project_title, flag_reasons)` in the dispute contract. It reads the project from the main Genatio contract, prevents duplicate flags, prevents creators from flagging their own project, and runs dispute review through a leader/validator flow. The dispute leader checks flag reasons against project and GitHub evidence, returns `1` for a valid flag and `0` for an invalid flag, and the dispute validator only checks that the result is `0` or `1`. A valid flag can call the main contract callback to reject the project and can blacklist the creator wallet. `get_flags`, `get_dispute_history`, `get_my_flags`, and `get_blacklist` expose dispute state.
+
+---
+
+## GenLayer Methods Used
+
+### `gl.vm.run_nondet_unsafe`
+
+Used to run Genatio verification and dispute review through GenLayer's leader/validator model.
+
+For project verification, the leader performs the full project scoring. The current testnet release uses a lightweight validator that checks the returned score is an integer from `0` to `100`.
+
+For disputes, the leader evaluates report reasons against project and GitHub evidence. The dispute validator checks that the result is either `0` or `1`.
+
+### `gl.message.sender_address`
+
+Used to identify:
+
+- the project creator in `submit_project`
+- the contributor in `fund_project`
+- the reporter in `flag_project`
+- owner access for `set_dispute_contract`
+
+### `TreeMap`
+
+Used for persistent keyed storage:
+
+- `campaigns` in the main Genatio contract
+- `rejected` submissions in the main Genatio contract
+- `dispute_history` in the Genatio Dispute contract
+
+This keeps project, rejection, and dispute records retrievable by ID or wallet-scoped filtering.
+
+### `u256`
+
+Used for numeric contract values such as:
+
+- `goal_gen`
+- `duration_days`
+- score parsing and comparison
+- `gl.message.value`
+- `raised_gen`
+- `donor_count`
+
+### JSON serialization
+
+Campaigns, rejected submissions, donations, disputes, and dispute history are stored as JSON strings so the frontend can retrieve and render structured records consistently.
+
+Additional GenLayer features used by Genatio include:
+
+- `gl.nondet.web.get`
+- `gl.nondet.web.render`
+- `gl.nondet.exec_prompt`
+- `gl.message.value`
+- `gl.message_raw["datetime"]`
+- `@gl.public.view`
+- `@gl.public.write`
+- `@gl.public.write.payable`
+- `@gl.evm.contract_interface`
+- `Address`
+- `emit_transfer`
+- `gl.get_contract_at`
+- `main.emit(on="accepted").reject_project(project_id)`
 
 ---
 
 ## UI Tour
 
-### Landing Page
-Genatio greets visitors with live on-chain stats and recently verified projects. Connect your wallet to submit a project or fund one directly.
+### 1. Landing Page
 
-![Genatio Home](screenshots/home.png)
+Screenshots will be added after the final production UI capture.
 
-### Browse Projects
-All verified projects are listed publicly. Browse active grants, see AI verification scores, and fund projects you believe in directly on-chain.
+<!--
+Recommended screenshots:
+1. Landing page
+2. Browse projects
+3. Project detail and funding card
+4. Submit project flow
+5. Dashboard
+6. Dispute/flag flow
 
-![Browse Projects](screenshots/browse.png)
+Place future screenshots in:
+docs/images/landing.png
+docs/images/browse.png
+docs/images/project-detail.png
+docs/images/submit.png
+docs/images/dashboard.png
+docs/images/dispute.png
+-->
 
-### Submit Project
-Builders submit their open source project with a GitHub URL, what the project is about, and a funding goal. GenLayer Intelligent Contracts fetch the GitHub data and score the project through Optimistic Democracy — no human reviews anything.
+The landing page introduces Genatio, platform stats, and approved project sections.
 
-![Submit Project](screenshots/submit.png)
+### 2. Audit Workspace
 
-### Flag a Project
-Community members can flag suspicious projects. A dispute Intelligent Contract re-investigates using the same evidence-based pipeline and executes the outcome automatically on-chain.
+The submit flow lets builders connect a wallet and submit project details for GenLayer verification.
 
-![Flag Project](screenshots/flag.png)
+### 3. Audit In Progress
 
----
+After submission, Genatio tracks the transaction and waits for the verification result to become available.
 
-## How it works
+### 4. Audit Report
 
-1. Creator connects wallet and submits project with GitHub URL, about your project, and funding goal
-2. GenLayer Intelligent Contract fetches GitHub data and scores the project through Optimistic Democracy
-3. Projects scoring 40+ go live immediately — donors fund them directly wallet to wallet
-4. Anyone can flag suspicious projects — a dispute Intelligent Contract re-investigates using the same pipeline
-5. Rejected projects are stored on-chain with a clear reason and can be resubmitted with the same title once fixed
+The verification result page shows the project score and whether the project met the listing threshold.
 
----
+### 5. Dashboard
 
-## Frontend Web Console Features
+The dashboard gives connected wallets a scoped view of their submitted projects, rejected projects, and report history.
 
-- **Live Dashboard** — every connected wallet sees their own submission history, including pending verifications, approved projects, and rejected attempts with AI-provided reasons
-- **Real-Time Submission Banner** — a persistent banner tracks verification status across the app and updates automatically the moment a verdict lands on-chain, no page refresh required
-- **Notification Bell** — surfaces recent approvals, rejections, and flag resolutions for the connected wallet only
-- **Direct Funding Modal** — displays the verified project wallet and triggers a native wallet transaction, no intermediary contract step
-- **Flag Investigation Modal** — walks the user through reason selection, live consensus polling, and a clear VALID/INVALID resolution with reasoning
-- **Score Visualization** — animated score ring with strengths and weaknesses breakdown on the verification result page
-- **Dark/Light/System Theme** — full theme support using CSS custom properties, zero hardcoded colors
-- **Smart Polling** — aggressive 5 second polling only while a transaction is actively pending, falling back to 30 second background polling otherwise to protect Bradbury RPC rate limits
+### 6. Examples
 
----
-
-## Contracts
-
-| Contract | Address |
-|----------|---------|
-| Genatio | `0xD666F066dCDb27BFFffCc8869c66b2E6A246F1F0` |
-| GenatioDispute | `0x49dbBed1fE59f0c868a71Fc57268b943FddF657d` |
-
-Network: GenLayer Bradbury · Chain ID: 4221
+The browse and project detail pages provide examples of verified campaigns that supporters can inspect and fund.
 
 ---
 
-## Project Structure
-genatio/
+## Audit Scope
 
-├── contract/
+Genatio checks:
 
-│   ├── Genatio.py              # Main Intelligent Contract
+- public GitHub repository evidence
+- commit activity
+- repository description quality
+- license presence
+- repository age
+- funding purpose specificity
+- project story quality
+- community engagement
+- live URL availability
+- project consistency
+- report reasons against project and GitHub evidence
 
-│   └── GenatioDispute.py       # Dispute Intelligent Contract
+Genatio does not check:
 
-├── frontend/
-
-│   ├── app/                    # Next.js pages and API routes
-
-│   ├── components/             # UI components
-
-│   ├── hooks/                  # Contract data hooks
-
-│   └── lib/                    # Contract addresses and wallet config
-
-└── README.md
+- every possible code vulnerability
+- full business correctness
+- legal compliance
+- future delivery guarantees
+- external identities outside submitted project evidence
+- production financial risk
 
 ---
 
-## GenLayer Features Used
+## Result Types
 
-- `gl.nondet.web.get()` — GitHub API fetching
-- `gl.nondet.web.render()` — Live URL verification
-- `gl.nondet.exec_prompt()` — AI project scoring and flag evaluation
-- `gl.vm.run_nondet_unsafe()` — Custom validator for consensus
-- `gl.vm.Return` — Validator type check in validator_fn
-- `gl.message.sender_address` — Wallet identity on every write method
-- `gl.message.value` — Transaction value where applicable
-- `gl.message_raw['datetime']` — On-chain timestamps
-- `@gl.public.view` — All read methods
-- `@gl.public.write` — All write methods
-- `gl.get_contract_at().view()` — Cross-contract reads
-- `gl.get_contract_at().emit()` — Cross-contract writes
-- `Address()` — Contract address handling
-- `TreeMap[str, str]` — campaigns and rejected project storage
-- `DynArray[str]` — blacklist storage
-- `u256` — Numeric type for scores
-
-**Total: 16 GenLayer methods across 7 categories**
+| Result | Meaning |
+| --- | --- |
+| Active | The project met the verification threshold and is listed for funding. |
+| Rejected | The project did not meet the verification threshold and is stored in rejected submissions. |
+| Ended | The project creator closed the campaign. |
+| Report Valid | A dispute review confirmed the report and can reject the project through the main contract callback. |
+| Report Invalid | A dispute review dismissed the report and leaves the project listed. |
 
 ---
 
 ## Configuration & Environment Setup
 
-### Prerequisites
-- Node.js 18+
-- [Rabby Wallet](https://rabby.io) — recommended for the smoothest experience on GenLayer Bradbury
-- Testnet GEN from the [GenLayer Faucet](https://faucet.genlayer.com)
+Use frontend-safe `NEXT_PUBLIC_*` values. Do not commit `.env.local`, and do not add private keys, seed phrases, mnemonics, or backend secrets. Vercel environment variables are recommended for production.
 
-### Local Setup
-git clone https://github.com/jason4185/genatio
+```env
+NEXT_PUBLIC_GENATIO_CONTRACT_ADDRESS=0x9b759C76bCB3e0ACB9Df28dD57575F5c371d2E95
+NEXT_PUBLIC_GENATIO_DISPUTE_CONTRACT_ADDRESS=0xd39820b6d9F55231B14e55336AAeeF8a50a61562
+```
 
-cd genatio/frontend
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_GENATIO_CONTRACT_ADDRESS` | Deployed main Genatio Intelligent Contract address. |
+| `NEXT_PUBLIC_GENATIO_DISPUTE_CONTRACT_ADDRESS` | Deployed Genatio Dispute Intelligent Contract address. |
 
+`frontend/.env.local` is for local development only. Vercel should receive the same public environment variables for deployment.
+
+---
+
+## Local Development
+
+Install dependencies:
+
+```bash
+git clone <repo-url>
+cd genatio
+cd frontend
 npm install
+```
 
-Create `.env.local` in the `frontend/` directory:
-NEXT_PUBLIC_TEST_MODE=false
+Start the local app:
 
-Run the app:
+```bash
 npm run dev
+```
 
-Open `http://localhost:3000`, connect your wallet, and submit a project with a real GitHub URL to see the full verification flow.
+The app runs at:
 
----
-
-## Status
-
-### MVP 1 — Current (Live)
-- ✅ Project submission with AI verification through Optimistic Democracy
-- ✅ Direct peer-to-peer GEN funding — wallet to wallet, no custody
-- ✅ Community flag and dispute resolution with independent evidence re-fetching
-- ✅ Dashboard with submission and flag history
-- ✅ Rejected project storage on-chain with resubmission support
-- ✅ Live at genatio.xyz on GenLayer Bradbury
-
-### MVP 2 — Planned
-- 📱 Mobile responsive design — full support for all screen sizes and touch devices
-- 🔍 On-chain donation verification — GenLayer independently confirms each claimed GEN transfer via the Bradbury explorer API before updating funding stats, with no contract custody required
-- 📒 Verified funding tracker — a transparent, tamper-proof funding ledger per project built only from independently verified donations
-- ⭐ Builder reputation score — an on-chain reputation badge (NEW / BUILDER / TRUSTED / VERIFIED) derived from a wallet's approval history, rejection patterns, and flag outcomes
+```text
+http://localhost:3000
+```
 
 ---
 
-## Feedback
+## Deployment
 
-Genatio is an active GenLayer Builder Program submission. Feedback and suggestions are welcome on GitHub.
+The frontend can be deployed on Vercel from GitHub.
+
+1. Push the repo to GitHub.
+2. Import the project into Vercel.
+3. Use `frontend` as the frontend root directory.
+4. Add the required environment variables.
+5. Deploy.
+
+Useful verification command:
+
+```bash
+npm run build
+```
+
 ---
 
-Built by [Jason](https://x.com/ja__so)
+## Planned Features
 
-**P.S.** Genatio is itself an open source project — anyone can submit it on Genatio and let the Intelligent Contract verify it.
+### Shareable Audit Reports
+
+A future version may add cleaner share links for project verification results or campaign pages.
+
+### Stronger Validator Verification Mode
+
+A future version may add stricter validator checks once timeout behavior is better characterized on Bradbury Testnet.
+
+### Richer Report Metadata
+
+Future project and dispute records may include richer metadata for verification results, funding summaries, and report outcomes.
+
+---
+
+## Project Status
+
+Genatio is a current Bradbury Testnet release focused on verified open source project funding.
+
+Contract addresses may change after redeployment. The current release uses lightweight validator checks for demo stability and lower timeout risk.
+
+---
+
+## License
+
+License to be added.
